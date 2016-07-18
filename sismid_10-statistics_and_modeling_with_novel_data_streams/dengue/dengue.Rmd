@@ -1,0 +1,169 @@
+---
+title: "dentue"
+author: "daniel"
+date: "July 18, 2016"
+output: 
+  html_document: 
+    number_sections: yes
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Dengue fever is a virus-caused disease that is spread by mosquitoes that a↵ects millions of people in tropical
+environments around the Globe. In this problem, you are asked to construct a simple version of the digital
+disease detection tool: “Google Dengue Trends” for Mexico. For this, you will download the spreadsheet
+Dengue trends AM 111.xls from the course website. The first column in the spreadsheet represents the
+date (in months, from 2004-2011), the second column represents the number of Google searches of the term
+“dengue” in Mexico, in a given month. The third column represents the number of cases of Dengue in
+Mexico, as reported by the Mexican Ministry of Health. You may use Matlab or Excel for this problem.
+
+```{r, warning=FALSE}
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+dengue <- read_excel("~/git/2016-07-sismid/sismid_10-statistics_and_modeling_with_novel_data_streams/dengue/Dengue_trends_AM_111.xls")
+
+dengue <- dengue[complete.cases(dengue), ]
+names(dengue) <- c('date', 'cases', 'searches')
+```
+
+```{r}
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+```
+
+# a
+
+Plot the number of cases of Dengue as a function of time.
+
+```{r}
+dengue %>%
+    group_by(date) %>%
+    summarize(num_cases = sum(cases))
+```
+
+## full model
+
+```{r}
+ggplot(data = dengue) + geom_line(aes(x = date, y = cases))
+```
+
+```{r}
+mod <- glm(formula = searches ~ cases, data = dengue)
+summary(mod)
+```
+
+```{r}
+ggplot(data = dengue) +
+    geom_point(aes(x = searches, y = cases)) +
+    geom_smooth(method = lm)
+```
+
+# b
+For the training period 2004-2006 (36 months), find the best line that explains the number of cases
+of Dengue as a function of the number of searches of the term “dengue”. You should do this by solving
+the least squares problem, and you should obtain the value of the y-intercept and the slope.
+
+jswn@uw.edu
+
+
+## training
+
+```{r}
+training <- dengue[year(dengue$date) >= 2004 & year(dengue$date) <= 2006, ]
+mod_training <- glm(cases ~ searches, data = training)
+summary(mod_training)
+```
+
+```{r}
+values_train <- predict(mod_training, training[, 'searches'])
+```
+
+# c
+Use the equation of the line you obtained in (b) and plot the number of cases as a function of the number
+of searches of the term “dengue”, predicted by your method during the training period. Compare your
+results to the plot in (a) for such time period.
+
+```{r}
+g1 <- ggplot(data = training) +
+    geom_point(aes(x = searches, y = cases)) +
+    geom_line(aes(x = training$searches, y = values_train))
+g1
+```
+
+# d
+## out of sample
+
+For the prediction or validation period 2007-2011, use the equation of the line you obtained in (b)
+to predict the number of the dengue cases as a function of the number of searches of the term “dengue”
+from 2007-2011. Plot your predictions and compare them to the actual number of cases.
+
+```{r}
+test_all <- dengue[year(dengue$date) >= 2007, ]
+test <- test_all[, 'searches']
+values_test <- predict(mod_training, as.data.frame(test))
+```
+
+```{r}
+g2 <- ggplot(data = test_all) +
+    geom_point(aes(x = searches, y = cases)) +
+    geom_line(aes(x = test_all$searches, y = values_test))
+g2
+```
+
+```{r}
+multiplot(g1 + xlim(-1, 6) + ylim(0, 30000),
+          g2 + xlim(-1, 6) + ylim(0, 30000))
+```
+
+```{r}
+p <- predict(mod_training, dengue[, 'searches'])
+ggplot() +
+    geom_line(data = dengue, aes(x = date, y = cases)) +
+    geom_line(aes(x = dengue$date, y = p), color = 'red')
+```
+
+# e
+## improve modeling results
+Discuss your results. Could you improve this modeling approach? If so, how?
+
+
+
+

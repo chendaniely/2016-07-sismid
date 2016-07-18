@@ -57,3 +57,10 @@ sir model: s + i -> 2i
 transmission rate, x, effective number of contacts per unit time: beta
 
 x, proportion of contacts infectious I / N
+
+
+data: http://people.fas.harvard.edu/~msantill
+
+http://people.fas.harvard.edu/~msantill/Mauricio_Santillana/Teaching.html
+
+
