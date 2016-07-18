@@ -12,6 +12,8 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Problem
+
 Dengue fever is a virus-caused disease that is spread by mosquitoes that a↵ects millions of people in tropical
 environments around the Globe. In this problem, you are asked to construct a simple version of the digital
 disease detection tool: “Google Dengue Trends” for Mexico. For this, you will download the spreadsheet
@@ -20,7 +22,7 @@ date (in months, from 2004-2011), the second column represents the number of Goo
 “dengue” in Mexico, in a given month. The third column represents the number of cases of Dengue in
 Mexico, as reported by the Mexican Ministry of Health. You may use Matlab or Excel for this problem.
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 library(readxl)
 library(dplyr)
 library(ggplot2)
@@ -69,7 +71,7 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 }
 ```
 
-# a
+# Part A
 
 Plot the number of cases of Dengue as a function of time.
 
@@ -79,32 +81,28 @@ dengue %>%
     summarize(num_cases = sum(cases))
 ```
 
-## full model
-
 ```{r}
 ggplot(data = dengue) + geom_line(aes(x = date, y = cases))
 ```
 
 ```{r}
-mod <- glm(formula = searches ~ cases, data = dengue)
+mod <- glm(formula = cases ~ searches, data = dengue)
 summary(mod)
 ```
 
 ```{r}
+dengue$glm_predict <- predict(mod, dengue[, 'searches'])
 ggplot(data = dengue) +
     geom_point(aes(x = searches, y = cases)) +
-    geom_smooth(method = lm)
+    geom_line(aes(x = searches, y = glm_predict))
 ```
 
-# b
+# Part B
+
 For the training period 2004-2006 (36 months), find the best line that explains the number of cases
 of Dengue as a function of the number of searches of the term “dengue”. You should do this by solving
 the least squares problem, and you should obtain the value of the y-intercept and the slope.
 
-jswn@uw.edu
-
-
-## training
 
 ```{r}
 training <- dengue[year(dengue$date) >= 2004 & year(dengue$date) <= 2006, ]
@@ -116,7 +114,8 @@ summary(mod_training)
 values_train <- predict(mod_training, training[, 'searches'])
 ```
 
-# c
+# Part C
+
 Use the equation of the line you obtained in (b) and plot the number of cases as a function of the number
 of searches of the term “dengue”, predicted by your method during the training period. Compare your
 results to the plot in (a) for such time period.
@@ -128,8 +127,7 @@ g1 <- ggplot(data = training) +
 g1
 ```
 
-# d
-## out of sample
+# Part D
 
 For the prediction or validation period 2007-2011, use the equation of the line you obtained in (b)
 to predict the number of the dengue cases as a function of the number of searches of the term “dengue”
@@ -160,10 +158,11 @@ ggplot() +
     geom_line(aes(x = dengue$date, y = p), color = 'red')
 ```
 
-# e
-## improve modeling results
+# Part E
+
 Discuss your results. Could you improve this modeling approach? If so, how?
 
-
+- retrain as new data comes in
+- account for auto correlation
 
 
