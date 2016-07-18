@@ -300,7 +300,9 @@ dengue$training_predict <- predict(mod_training, dengue[, 'searches'])
 dengue_long <- dengue %>%
     gather(case_type, value, cases, glm_predict_all:rolling_glm)
 
-ggplot(data = dengue_long, aes(x = date, y = value, color = case_type)) + geom_line()
+ggplot(data = dengue_long, aes(x = date, y = value,
+                               color = case_type, linetype = case_type)) +
+    geom_line()
 ```
 
 ![](dengue_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
