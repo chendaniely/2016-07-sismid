@@ -27,13 +27,18 @@ library(readxl)
 library(dplyr)
 library(ggplot2)
 library(lubridate)
-dengue <- read_excel("~/git/2016-07-sismid/sismid_10-statistics_and_modeling_with_novel_data_streams/dengue/Dengue_trends_AM_111.xls")
+dengue <- read_excel("sismid_10-statistics_and_modeling_with_novel_data_streams/dengue/Dengue_trends_AM_111.xls")
 
+# weird excel NA values
 dengue <- dengue[complete.cases(dengue), ]
+
+# there are spaces in the column names
 names(dengue) <- c('date', 'cases', 'searches')
 ```
 
 ```{r}
+# code from r graphics cookbook
+# http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/
 multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
   library(grid)
 
@@ -76,9 +81,8 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 Plot the number of cases of Dengue as a function of time.
 
 ```{r}
-dengue %>%
-    group_by(date) %>%
-    summarize(num_cases = sum(cases))
+head(dengue)
+tail(dengue)
 ```
 
 ```{r}
