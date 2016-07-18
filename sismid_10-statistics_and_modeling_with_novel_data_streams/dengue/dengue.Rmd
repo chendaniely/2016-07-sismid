@@ -192,9 +192,12 @@ dengue$training_predict <- predict(mod_training, dengue[, 'searches'])
 dengue_long <- dengue %>%
     gather(case_type, value, cases, glm_predict_all:rolling_glm)
 
+loc_2007 <- match(2007, year(dengue_long$date))
+
 ggplot(data = dengue_long, aes(x = date, y = value,
                                color = case_type, linetype = case_type)) +
-    geom_line()
+    geom_line() +
+    geom_vline(xintercept = as.numeric(dengue_long$date[loc_2007]))
 ```
 
 
