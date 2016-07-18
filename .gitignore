@@ -1,4 +1,9 @@
 *~
 
+*/*/*.ipynb_checkpoints/*
+
+*.html
+*.png
+
 .Rproj.user
 /.Rhistory
