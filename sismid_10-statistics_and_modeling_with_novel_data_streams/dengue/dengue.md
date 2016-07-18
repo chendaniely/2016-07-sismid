@@ -18,6 +18,7 @@ library(readxl)
 library(dplyr)
 library(ggplot2)
 library(lubridate)
+library(tidyr)
 
 # help with knitr and working directories
 if (!interactive()) {
@@ -280,5 +281,28 @@ Discuss your results. Could you improve this modeling approach? If so, how?
 
 - retrain as new data comes in
 - account for auto correlation
+
+
+```r
+dengue$rolling_glm <- dengue$glm_predict_all
+for (i in nrow(training_df):nrow(dengue)) {
+    # i <- 45
+    i_predict <- i - 1
+    mod <- glm(formula = cases ~ searches, data = dengue[1:i_predict, ])
+    dengue[i, 'rolling_glm'] <- predict(mod, dengue[i, 'searches'])
+}
+```
+
+
+```r
+dengue$training_predict <- predict(mod_training, dengue[, 'searches'])
+
+dengue_long <- dengue %>%
+    gather(case_type, value, cases, glm_predict_all:rolling_glm)
+
+ggplot(data = dengue_long, aes(x = date, y = value, color = case_type)) + geom_line()
+```
+
+![](dengue_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
 
 
