@@ -1,5 +1,5 @@
 ---
-title: "dentue"
+title: "dengue"
 author: "daniel"
 date: "July 18, 2016"
 output: 

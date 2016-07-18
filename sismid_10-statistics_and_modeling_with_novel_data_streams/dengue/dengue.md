@@ -1,4 +1,4 @@
-# dentue
+# dengue
 daniel  
 July 18, 2016  
 
