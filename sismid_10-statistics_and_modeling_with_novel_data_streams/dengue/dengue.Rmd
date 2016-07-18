@@ -8,10 +8,6 @@ output:
     toc: yes
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
 # Problem
 
 Dengue fever is a virus-caused disease that is spread by mosquitoes that a↵ects millions of people in tropical
@@ -27,7 +23,15 @@ library(readxl)
 library(dplyr)
 library(ggplot2)
 library(lubridate)
-dengue <- read_excel("sismid_10-statistics_and_modeling_with_novel_data_streams/dengue/Dengue_trends_AM_111.xls")
+
+# help with knitr and working directories
+if (!interactive()) {
+    data <- 'Dengue_trends_AM_111.xls'
+} else {
+    data <- 'sismid_10-statistics_and_modeling_with_novel_data_streams/dengue/Dengue_trends_AM_111.xls'
+}
+
+dengue <- read_excel(data)
 
 # weird excel NA values
 dengue <- dengue[complete.cases(dengue), ]
@@ -95,10 +99,11 @@ summary(mod)
 ```
 
 ```{r}
-dengue$glm_predict <- predict(mod, dengue[, 'searches'])
+dengue$glm_predict_all <- predict(mod, dengue[, 'searches'])
 ggplot(data = dengue) +
     geom_point(aes(x = searches, y = cases)) +
-    geom_line(aes(x = searches, y = glm_predict))
+    geom_line(aes(x = searches, y = glm_predict_all)) +
+    ggtitle('Searches by Cases with linear predictor')
 ```
 
 # Part B
@@ -109,13 +114,9 @@ the least squares problem, and you should obtain the value of the y-intercept an
 
 
 ```{r}
-training <- dengue[year(dengue$date) >= 2004 & year(dengue$date) <= 2006, ]
-mod_training <- glm(cases ~ searches, data = training)
+training_df <- dengue[year(dengue$date) >= 2004 & year(dengue$date) <= 2006, ]
+mod_training <- glm(cases ~ searches, data = training_df)
 summary(mod_training)
-```
-
-```{r}
-values_train <- predict(mod_training, training[, 'searches'])
 ```
 
 # Part C
@@ -125,9 +126,12 @@ of searches of the term “dengue”, predicted by your method during the traini
 results to the plot in (a) for such time period.
 
 ```{r}
-g1 <- ggplot(data = training) +
+training_df$values_train <- predict(mod_training, training_df[, 'searches'])
+
+g1 <- ggplot(data = training_df) +
     geom_point(aes(x = searches, y = cases)) +
-    geom_line(aes(x = training$searches, y = values_train))
+    geom_line(aes(x = searches, y = values_train)) +
+    ggtitle('Searches x Cases 2004 - 2006 (Training)')
 g1
 ```
 
@@ -138,15 +142,16 @@ to predict the number of the dengue cases as a function of the number of searche
 from 2007-2011. Plot your predictions and compare them to the actual number of cases.
 
 ```{r}
-test_all <- dengue[year(dengue$date) >= 2007, ]
-test <- test_all[, 'searches']
-values_test <- predict(mod_training, as.data.frame(test))
+testing_df <- dengue[year(dengue$date) >= 2007, ]
 ```
 
 ```{r}
-g2 <- ggplot(data = test_all) +
+testing_df$predicted <- predict(mod_training, testing_df[, 'searches'])
+
+g2 <- ggplot(data = testing_df) +
     geom_point(aes(x = searches, y = cases)) +
-    geom_line(aes(x = test_all$searches, y = values_test))
+    geom_line(aes(x = searches, y = predicted)) +
+    ggtitle('Searches x Cases 2007 - 2011 (Testing)')
 g2
 ```
 
@@ -156,10 +161,10 @@ multiplot(g1 + xlim(-1, 6) + ylim(0, 30000),
 ```
 
 ```{r}
-p <- predict(mod_training, dengue[, 'searches'])
-ggplot() +
-    geom_line(data = dengue, aes(x = date, y = cases)) +
-    geom_line(aes(x = dengue$date, y = p), color = 'red')
+dengue$training_predict <- predict(mod_training, dengue[, 'searches'])
+ggplot(data = dengue) +
+    geom_line(aes(x = date, y = cases)) +
+    geom_line(aes(x = date, y = training_predict), color = 'red')
 ```
 
 # Part E
