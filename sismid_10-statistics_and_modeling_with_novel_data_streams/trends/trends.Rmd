@@ -1,0 +1,37 @@
+---
+title: "trends"
+author: "daniel"
+date: "July 19, 2016"
+output: 
+  html_document: 
+    fig_width: 8
+    keep_md: yes
+    number_sections: yes
+    toc: yes
+---
+
+```{r}
+# set some stuff up
+rm(list = ls())
+if (interactive()) {
+    data <- "sismid_10-statistics_and_modeling_with_novel_data_streams/trends/correlate-Influenza_like_Illness_CDC_.csv"
+} else {
+    data <- "correlate-Influenza_like_Illness_CDC_.csv"
+}
+```
+
+
+```{r}
+library(readr)
+ili <- read_csv(data, comment = "#", skip = 1)
+
+ # there are 2 empty lines at the end of the file
+ili <- apply(X = ili,
+             MARGIN = 1,
+             FUN = function(x){
+                 all(is.na(x))
+                 })
+
+ili_2 <- read.csv(data, comment.char = '#')
+```
+
