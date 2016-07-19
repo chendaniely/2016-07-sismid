@@ -251,18 +251,6 @@ multiplot(g1 + xlim(-1, 6) + ylim(0, 30000),
           g2 + xlim(-1, 6) + ylim(0, 30000))
 ```
 
-```
-## Warning: Removed 5 rows containing missing values (geom_path).
-```
-
-```
-## Warning: Removed 1 rows containing missing values (geom_point).
-```
-
-```
-## Warning: Removed 3 rows containing missing values (geom_path).
-```
-
 ![](dengue_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
 
 
@@ -305,7 +293,10 @@ loc_2007 <- match(2007, year(dengue_long$date))
 ggplot(data = dengue_long, aes(x = date, y = value,
                                color = case_type, linetype = case_type)) +
     geom_line() +
-    geom_vline(xintercept = as.numeric(dengue_long$date[loc_2007]))
+    geom_vline(xintercept = as.numeric(dengue_long$date[loc_2007])) +
+    ggtitle('date vs cases for different prediciton methods') +
+    xlab('date') +
+    ylab('cases')
 ```
 
 ![](dengue_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
