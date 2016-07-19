@@ -86,33 +86,35 @@ Plot the number of cases of Dengue as a function of time.
 head(dengue)
 ```
 
-```
-## # A tibble: 6 x 3
-##         date cases searches
-##       <time> <dbl>    <dbl>
-## 1 2004-01-01    98   -0.649
-## 2 2004-02-01    41   -0.645
-## 3 2004-03-01    53   -0.369
-## 4 2004-04-01    92   -0.485
-## 5 2004-05-01   100    0.188
-## 6 2004-06-01   240   -0.036
-```
+<div class="kable-table">
+
+date          cases   searches
+-----------  ------  ---------
+2004-01-01       98     -0.649
+2004-02-01       41     -0.645
+2004-03-01       53     -0.369
+2004-04-01       92     -0.485
+2004-05-01      100      0.188
+2004-06-01      240     -0.036
+
+</div>
 
 ```r
 tail(dengue)
 ```
 
-```
-## # A tibble: 6 x 3
-##         date cases searches
-##       <time> <dbl>    <dbl>
-## 1 2011-07-01  1108   -0.671
-## 2 2011-08-01  2056   -0.499
-## 3 2011-09-01  3818    0.104
-## 4 2011-10-01  5950    0.404
-## 5 2011-11-01  4247   -0.058
-## 6 2011-12-01  1749   -0.763
-```
+<div class="kable-table">
+
+date          cases   searches
+-----------  ------  ---------
+2011-07-01     1108     -0.671
+2011-08-01     2056     -0.499
+2011-09-01     3818      0.104
+2011-10-01     5950      0.404
+2011-11-01     4247     -0.058
+2011-12-01     1749     -0.763
+
+</div>
 
 
 ```r
@@ -273,7 +275,10 @@ Discuss your results. Could you improve this modeling approach? If so, how?
 
 ```r
 dengue$rolling_glm <- dengue$glm_predict_all
-for (i in nrow(training_df):nrow(dengue)) {
+
+# start prediction on the testing set
+# fit model on all previous values to predict current value
+for (i in nrow(training_df) + 1:nrow(dengue)) {
     # i <- 45
     i_predict <- i - 1
     mod <- glm(formula = cases ~ searches, data = dengue[1:i_predict, ])
@@ -297,6 +302,10 @@ ggplot(data = dengue_long, aes(x = date, y = value,
     ggtitle('date vs cases for different prediciton methods') +
     xlab('date') +
     ylab('cases')
+```
+
+```
+## Warning: Removed 144 rows containing missing values (geom_path).
 ```
 
 ![](dengue_files/figure-html/unnamed-chunk-14-1.png)<!-- -->

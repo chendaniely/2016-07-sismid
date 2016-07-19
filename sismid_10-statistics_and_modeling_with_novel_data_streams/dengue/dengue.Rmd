@@ -178,7 +178,10 @@ Discuss your results. Could you improve this modeling approach? If so, how?
 
 ```{r}
 dengue$rolling_glm <- dengue$glm_predict_all
-for (i in nrow(training_df):nrow(dengue)) {
+
+# start prediction on the testing set
+# fit model on all previous values to predict current value
+for (i in nrow(training_df) + 1:nrow(dengue)) {
     # i <- 45
     i_predict <- i - 1
     mod <- glm(formula = cases ~ searches, data = dengue[1:i_predict, ])
