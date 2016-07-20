@@ -85,16 +85,23 @@ gc_testing <- gc_testing %>% as.matrix()
 topleft(gc_testing)
 ```
 
+## Fit the model
+
 ```{r}
 x <- build.x(v1 ~ . - 1, gc_training, FALSE)
 y <- build.y(v1 ~ . - 1, gc_training)
 ```
 
 ```{r}
+# set the seed
+set.seed(42)
+
 # LASSO with 5 fold cross-validation
 mod_cv5 <- cv.glmnet(x = x, y = y, family = "gaussian", nfold = 5)
 predictions_cv5 <- predict(mod_cv5, gc_testing[, -1])
 ```
+
+## Look at model coefficients
 
 ```{r}
 mod_cv5$lambda.min
@@ -113,6 +120,8 @@ plot(mod_cv5$glmnet.fit, xvar = "lambda")
 # add in vertical lines for the optimal values of lambda
 abline(v = log(c(mod_cv5$lambda.min, mod_cv5$lambda.1se)), lty = 2)
 ```
+
+## Plot predictions
 
 ```{r, warning=FALSE}
 ggplot() +
@@ -135,4 +144,3 @@ ggplot() +
     geom_line(data = cdc, aes(x = date, y = as.numeric(cases))) +
     geom_line(aes(x = test_years, y = predictions_cv5), color = 'red')
 ```
-

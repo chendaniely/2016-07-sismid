@@ -46,7 +46,7 @@ identical(ili$Date, ili_2$Date)
 useful::topleft(ili)
 ```
 
-<div class="kable-table">
+<!-- <div class="kable-table"> -->
 
 Date          Influenza-like Illness (CDC)   influenza type a   symptoms of flu   flu duration
 -----------  -----------------------------  -----------------  ----------------  -------------
@@ -62,7 +62,7 @@ Date          Influenza-like Illness (CDC)   influenza type a   symptoms of flu 
 useful::topleft(ili_2)
 ```
 
-<div class="kable-table">
+<!-- <div class="kable-table"> -->
 
 Date          Influenza.like.Illness..CDC.   influenza.type.a   symptoms.of.flu   flu.duration
 -----------  -----------------------------  -----------------  ----------------  -------------
@@ -140,6 +140,8 @@ topleft(gc_testing)
 ## [5,]  0.634  0.960  0.195 0.738  0.321
 ```
 
+## Fit the model
+
 
 ```r
 x <- build.x(v1 ~ . - 1, gc_training, FALSE)
@@ -148,10 +150,15 @@ y <- build.y(v1 ~ . - 1, gc_training)
 
 
 ```r
+# set the seed
+set.seed(42)
+
 # LASSO with 5 fold cross-validation
 mod_cv5 <- cv.glmnet(x = x, y = y, family = "gaussian", nfold = 5)
 predictions_cv5 <- predict(mod_cv5, gc_testing[, -1])
 ```
+
+## Look at model coefficients
 
 
 ```r
@@ -159,7 +166,7 @@ mod_cv5$lambda.min
 ```
 
 ```
-## [1] 0.01747911
+## [1] 0.01097739
 ```
 
 ```r
@@ -167,7 +174,7 @@ mod_cv5$lambda.1se
 ```
 
 ```
-## [1] 0.05858302
+## [1] 0.05337867
 ```
 
 ```r
@@ -185,11 +192,14 @@ plot(mod_cv5)
 ```r
 # plot the path
 plot(mod_cv5$glmnet.fit, xvar = "lambda")
+
 # add in vertical lines for the optimal values of lambda
 abline(v = log(c(mod_cv5$lambda.min, mod_cv5$lambda.1se)), lty = 2)
 ```
 
 ![](trends_files/figure-html/acs-glmnet-coefficient-path-1.png)<!-- -->
+
+## Plot predictions
 
 
 ```r
@@ -211,7 +221,7 @@ names(cdc) <- c('year', 'week', 'cases', 'date')
 head(cdc)
 ```
 
-<div class="kable-table">
+<!-- <div class="kable-table"> -->
 
  year   week  cases     date       
 -----  -----  --------  -----------
@@ -232,4 +242,3 @@ ggplot() +
 ```
 
 ![](trends_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
-
