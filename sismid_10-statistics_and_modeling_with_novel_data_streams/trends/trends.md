@@ -8,8 +8,10 @@ July 19, 2016
 rm(list = ls())
 if (interactive()) {
     data <- "sismid_10-statistics_and_modeling_with_novel_data_streams/trends/correlate-Influenza_like_Illness_CDC_.csv"
+    cdc_data <- "sismid_10-statistics_and_modeling_with_novel_data_streams/trends/CDC_national_updated.csv"
 } else {
     data <- "correlate-Influenza_like_Illness_CDC_.csv"
+    cdc_data <- 'CDC_national_updated.csv'
 }
 ```
 
@@ -101,7 +103,6 @@ test_years <- ili[year(ili$Date) %in% testing_years , "Date"]
 ```
 
 
-
 ```r
 gc_training <- ili %>%
     filter(year(Date) %in% training_years) %>%
@@ -147,22 +148,88 @@ y <- build.y(v1 ~ . - 1, gc_training)
 
 
 ```r
-# LASSO
-mod <- cv.glmnet(x = x, y = y, family = "gaussian", nfold = 5)
+# LASSO with 5 fold cross-validation
+mod_cv5 <- cv.glmnet(x = x, y = y, family = "gaussian", nfold = 5)
+predictions_cv5 <- predict(mod_cv5, gc_testing[, -1])
 ```
 
 
 ```r
-predictions <- as.numeric(predict(mod, gc_testing[, -1]))
+mod_cv5$lambda.min
 ```
+
+```
+## [1] 0.01747911
+```
+
+```r
+mod_cv5$lambda.1se
+```
+
+```
+## [1] 0.05858302
+```
+
+```r
+plot(mod_cv5)
+```
+
+![](trends_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+
+
+```r
+#coef(mod_cv5, s="lambda.1se")
+```
+
+
+```r
+# plot the path
+plot(mod_cv5$glmnet.fit, xvar = "lambda")
+# add in vertical lines for the optimal values of lambda
+abline(v = log(c(mod_cv5$lambda.min, mod_cv5$lambda.1se)), lty = 2)
+```
+
+![](trends_files/figure-html/acs-glmnet-coefficient-path-1.png)<!-- -->
 
 
 ```r
 ggplot() +
     geom_line(data = ili, aes(x = Date, y = `Influenza-like Illness (CDC)`)) +
-    geom_line(aes(x = test_years, y = predictions), color = 'red') +
+    geom_line(aes(x = test_years, y = as.numeric(predictions_cv5)), color = 'red') +
     ggtitle('Train and Predict on Google Correlate Data')
 ```
 
-![](trends_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+![](trends_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+
+# CDC Data
+
+
+```r
+cdc <- read_csv(cdc_data)
+cdc$date <- as.Date(paste(cdc$YEAR, cdc$WEEK, 1, sep = '-'), "%Y-%U-%u")
+names(cdc) <- c('year', 'week', 'cases', 'date')
+head(cdc)
+```
+
+<div class="kable-table">
+
+ year   week  cases     date       
+-----  -----  --------  -----------
+ 1997     40  1.21686   1997-10-06 
+ 1997     41  1.28064   1997-10-13 
+ 1997     42  1.23906   1997-10-20 
+ 1997     43  1.14473   1997-10-27 
+ 1997     44  1.26112   1997-11-03 
+ 1997     45  1.28275   1997-11-10 
+
+</div>
+
+
+```r
+ggplot() +
+    geom_line(data = cdc, aes(x = date, y = as.numeric(cases))) +
+    geom_line(aes(x = test_years, y = predictions_cv5), color = 'red')
+```
+
+![](trends_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
 
