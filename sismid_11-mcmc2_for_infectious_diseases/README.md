@@ -18,3 +18,6 @@ Kypraios, Theodore
 
 O'Neill, Philip
 - http://www.biostat.washington.edu/node/2584
+
+
+MCMC I course module: http://vnminin.github.io/SISMID_MCMC_I/
