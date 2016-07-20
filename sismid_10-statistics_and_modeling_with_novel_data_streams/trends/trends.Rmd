@@ -21,17 +21,87 @@ if (interactive()) {
 ```
 
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 library(readr)
+library(lubridate)
+library(dplyr)
+library(glmnet)
+library(useful)
+
 ili <- read_csv(data, comment = "#", skip = 1)
 
  # there are 2 empty lines at the end of the file
-ili <- apply(X = ili,
+non_empty <- apply(X = ili,
              MARGIN = 1,
              FUN = function(x){
-                 all(is.na(x))
+                 ifelse(all(is.na(x)), FALSE, TRUE)
                  })
+ili <- ili[non_empty, ]
+ili_2 <- read.csv(data, comment.char = '#', stringsAsFactors = FALSE)
+identical(ili$Date, ili_2$Date)
+```
 
-ili_2 <- read.csv(data, comment.char = '#')
+```{r}
+useful::topleft(ili)
+useful::topleft(ili_2)
+```
+
+# Google Coorelate
+
+Define training period on data.
+Use to predict on an out of sample testset.
+
+```{r}
+table(year(ili$Date), useNA = 'always')
+```
+
+```{r}
+training_years <- c(2004:2008)
+testing_years <- c(2009:2016)
+```
+
+```{r}
+train_years <- ili[year(ili$Date) %in% training_years , "Date"]
+test_years <- ili[year(ili$Date) %in% testing_years , "Date"]
+```
+
+
+```{r}
+gc_training <- ili %>%
+    filter(year(Date) %in% training_years) %>%
+    select(-Date)
+names(gc_training) <- sprintf('v%s', 1:ncol(gc_training))
+gc_training <- gc_training %>% as.matrix()
+topleft(gc_training)
+```
+
+```{r}
+gc_testing <- ili %>%
+    filter(year(Date) %in% testing_years) %>%
+    select(-Date)
+names(gc_testing) <- sprintf('v%s', 1:ncol(gc_testing))
+gc_testing <- gc_testing %>% as.matrix()
+topleft(gc_testing)
+```
+
+```{r}
+x <- build.x(v1 ~ . - 1, gc_training, FALSE)
+y <- build.y(v1 ~ . - 1, gc_training)
+```
+
+```{r}
+# LASSO
+mod <- cv.glmnet(x = x, y = y, family = "gaussian", nfold = 5)
+```
+
+```{r}
+predictions <- as.numeric(predict(mod, gc_testing[, -1]))
+```
+
+```{r, warning=FALSE}
+ggplot() +
+    geom_line(data = ili, aes(x = Date, y = `Influenza-like Illness (CDC)`)) +
+    geom_line(aes(x = test_years, y = predictions), color = 'red') +
+    ggtitle('Train and Predict on Google Correlate Data')
 ```
 
