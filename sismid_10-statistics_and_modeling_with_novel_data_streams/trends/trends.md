@@ -46,7 +46,7 @@ identical(ili$Date, ili_2$Date)
 useful::topleft(ili)
 ```
 
-<!-- <div class="kable-table"> -->
+<div class="kable-table">
 
 Date          Influenza-like Illness (CDC)   influenza type a   symptoms of flu   flu duration
 -----------  -----------------------------  -----------------  ----------------  -------------
@@ -62,7 +62,7 @@ Date          Influenza-like Illness (CDC)   influenza type a   symptoms of flu 
 useful::topleft(ili_2)
 ```
 
-<!-- <div class="kable-table"> -->
+<div class="kable-table">
 
 Date          Influenza.like.Illness..CDC.   influenza.type.a   symptoms.of.flu   flu.duration
 -----------  -----------------------------  -----------------  ----------------  -------------
@@ -216,12 +216,15 @@ ggplot() +
 
 ```r
 cdc <- read_csv(cdc_data)
+
+# convert year/week into a date object
 cdc$date <- as.Date(paste(cdc$YEAR, cdc$WEEK, 1, sep = '-'), "%Y-%U-%u")
+
 names(cdc) <- c('year', 'week', 'cases', 'date')
 head(cdc)
 ```
 
-<!-- <div class="kable-table"> -->
+<div class="kable-table">
 
  year   week  cases     date       
 -----  -----  --------  -----------

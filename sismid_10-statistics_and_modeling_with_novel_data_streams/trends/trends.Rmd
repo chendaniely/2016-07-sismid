@@ -134,7 +134,10 @@ ggplot() +
 
 ```{r}
 cdc <- read_csv(cdc_data)
+
+# convert year/week into a date object
 cdc$date <- as.Date(paste(cdc$YEAR, cdc$WEEK, 1, sep = '-'), "%Y-%U-%u")
+
 names(cdc) <- c('year', 'week', 'cases', 'date')
 head(cdc)
 ```
