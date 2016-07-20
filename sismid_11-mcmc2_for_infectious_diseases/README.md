@@ -12,6 +12,7 @@ MCMC output, and data augmentation methods. Programming will be
 carried out in R. The course assumes all the material in Module 7. The
 material from Module 2 or 5 would be helpful, but not required.
 
+Course URL: https://www.maths.nottingham.ac.uk/personal/tk/files/MCMC2-Seattle/
 
 Kypraios, Theodore
 - http://www.biostat.washington.edu/node/2578

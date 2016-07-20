@@ -12,4 +12,5 @@
 
 - continuous-time markov chain
   - first define a state space (e.g., s = {1, 2, 3, ..., n})
-  - asdf
+
+## Next Event Simulation (Gillespie Algorithm)
