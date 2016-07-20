@@ -1,0 +1,188 @@
+---
+title: "lab-01_simulation"
+author: "daniel"
+date: "July 20, 2016"
+output: 
+  html_document: 
+    keep_md: yes
+    toc: yes
+---
+
+```{r}
+if (interactive()) {
+    f <- 'sismid_11-mcmc2_for_infectious_diseases/lab-01_simulation/simulation.R'
+    f2 <- 'sismid_11-mcmc2_for_infectious_diseases/lab-01_simulation/simulation_2.R'
+} else {
+    f <- 'simulation.R'
+    f2 <- 'simulation_2.R'
+}
+```
+
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(tibble)
+
+source(f)
+source(f2)
+
+set.seed(42)
+```
+
+
+# Exercise 1
+Go through the lines of each function and make sure that you follow the logic behind.
+
+# Exercise 2
+Simulate realisations from a Markovian SIR using the function `simSIR.Markov` and make sure that you understand the output. You may assume that size of the population size is $N=21$ (i.e. 20 susceptibles and 1 initial infective). In addition, you could try different values for $(β,γ)$, e.g. $(0.9,1)$,$(2,1)$and $(4,1)$.
+
+```{r}
+simSIR.Markov(N = 21, beta = 0.9, gamma = 1)
+```
+
+```{r}
+simSIR.Markov(N = 21, beta = 2, gamma = 1)
+```
+
+```{r}
+simSIR.Markov(N = 21, beta = 4, gamma = 1)
+```
+
+# Exercise 3
+Modify the existing functions in simulation.R to record the final size and the duration of the epidemic as part of the functions’ output.
+
+```{r}
+simSIR.Markov2(N = 21, beta = 4, gamma = 1)
+```
+
+
+# Exercise 4
+Derive a simulation-based estimate of the distribution of the final size of a Markovian SIR model for different values of R0R0, e.g. R0=0.9R0=0.9, R0=1.5R0=1.5 and R0=4R0=4. Furthermore, do the same for the non-Markovian models, e.g. for a constant and a Gamma infectious period. Hint: You may find it useful to write a loop which will iterate the following steps for a number of times:
+
+Simulate a realisation from the epidemic model;
+Store the final size
+At the end you should have a collection of final sizes for which then you can plot a histogram as your estimate of the true distribution of the final size.
+
+```{r}
+sim_results <- list()
+for (i in 1:1000) {
+    sim <- simSIR.Markov2(N = 100, beta = 4, gamma = 1)
+    sim_results <- append(sim_results, list(sim))
+}
+```
+
+```{r}
+num_infected <- sapply(X = sim_results, FUN = '[[', 'num_infected')
+# num_infected
+```
+
+```{r}
+ggplot(data = data.frame(num_infected), aes(x = num_infected)) + geom_histogram() +
+    ggtitle('Distribution of number of infected')
+```
+
+# Exercise 5
+Repeat the above exercise but derive, by simulation, the distribution of the duration of the epidemic instead of the final size.
+
+```{r}
+num_events <- sapply(X = sim_results, FUN = '[[', 'num_events')
+# num_events
+```
+
+```{r}
+ggplot(data = data.frame(num_events), aes(x = num_events)) + geom_histogram() +
+    ggtitle('distribution of number of events')
+```
+
+# Exercise 6
+Write a function in R to simulate from a non-Markovian stochastic epidemic model where the infectious period is assumed to follow a Weibull distribution. Hint: The probability density function (pdf) of the Weibull distribution is as follows:
+
+$f(x)=(a/b)(x/b)(a−1)exp(−(x/b)a),x>0,a>0,b>0$
+
+$f(x)=(a/b)(x/b)(a−1)expa(−(x/b)a),x>0,a>0,b>0$
+
+Type `?Weibull` to find out how to simulate from a Weibull distribution.
+
+
+## Compare markov, gamma, weibull
+
+```{r}
+sim_results_markov <- list()
+sim_results_gamma <- list()
+sim_results_weibull <- list()
+
+sim_N <- 10
+sim_b <- 4
+sim_g <- 1
+sim_d <- 1
+total_time <- 1000
+
+for (i in 1:total_time) {
+    sim_markov <- simSIR.Markov2(N = sim_N, beta = sim_b, gamma = sim_g)
+    sim_results_markov <- append(sim_results_markov, list(sim_markov))
+    
+    sim_gamma <- simSIR.Non.Markov.gamma2(N = sim_N, beta = sim_b, gamma = sim_g, delta = sim_d)
+    sim_results_gamma <- append(sim_results_gamma, list(sim_gamma))
+    
+    sim_weibull <- simSIR.Non.Markov.weibull(N = sim_N, beta = sim_b, gamma = sim_g, delta = sim_d,
+                                             shape = 1, scale = 1)
+    sim_results_weibull <- append(sim_results_weibull, list(sim_weibull))
+}
+```
+
+### Num infected
+
+```{r}
+num_infected_m <- sapply(X = sim_results_markov, FUN = '[[', 'num_infected')
+num_infected_g <- sapply(X = sim_results_gamma, FUN = '[[', 'num_infected')
+num_infected_w <- sapply(X = sim_results_weibull, FUN = '[[', 'num_infected')
+```
+
+```{r}
+
+num_infected_df <- data.frame(num_infected_m, num_infected_g, num_infected_w)
+num_infected_df <- num_infected_df %>%
+    gather(key = dist, value = value)
+
+num_infected_df$time <- rep(1:total_time, times = 3)
+```
+
+
+```{r}
+ggplot(data = num_infected_df, aes(x = value)) + geom_histogram() +
+    facet_wrap(~dist) + 
+    ggtitle('Distribution of number of infected')
+```
+
+### Num events
+
+```{r}
+num_events_m <- sapply(X = sim_results_markov, FUN = '[[', 'num_events')
+num_events_g <- sapply(X = sim_results_gamma, FUN = '[[', 'num_events')
+num_events_w <- sapply(X = sim_results_weibull, FUN = '[[', 'num_events')
+```
+
+```{r}
+
+num_events_df <- data.frame(num_events_m, num_events_g, num_events_w)
+num_events_df <- num_events_df %>%
+    gather(key = dist, value = value)
+
+num_events_df$time <- rep(1:total_time, times = 3)
+```
+
+
+```{r}
+ggplot(data = num_events_df, aes(x = value)) + geom_histogram() +
+    facet_wrap(~dist) + 
+    ggtitle('Distribution of number of events')
+```
+
+# Exercise 7
+Write a function to simulate from an epidemic model which involves a fixed latent period, i.e. write a function to simulate from a stochastic SEIR model.
+
+```{r}
+simSIR.Non.Markov.constant(N = 25, beta = 32, k = 10)
+```
+
