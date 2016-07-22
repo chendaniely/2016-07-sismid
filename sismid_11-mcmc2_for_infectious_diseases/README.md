@@ -16,6 +16,7 @@ Course URL: https://www.maths.nottingham.ac.uk/personal/tk/files/MCMC2-Seattle/
 
 Kypraios, Theodore
 - http://www.biostat.washington.edu/node/2578
+- http://bindr.weebly.com/
 
 O'Neill, Philip
 - http://www.biostat.washington.edu/node/2584
