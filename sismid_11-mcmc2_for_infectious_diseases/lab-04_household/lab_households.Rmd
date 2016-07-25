@@ -1,0 +1,62 @@
+---
+title: "lab_household"
+author: "daniel"
+date: "July 22, 2016"
+output: 
+    html_document: 
+    keep_md: yes
+    self_contained: no
+    toc: yes
+---
+
+# Exercice 1
+
+Go through each of the functions in the file households.R and make sure that you understand what is going on.
+
+```{r}
+if (interactive()) {
+    hh <- 'sismid_11-mcmc2_for_infectious_diseases/lab-04_household/households.R'
+} else {
+    hh <- 'households.R'
+}
+
+source(hh)
+```
+
+
+# Exercice 2
+
+Write a function in R which computes the log-likelihood of the data given the parameters p
+and α assuming that the infectious period is constant and of length one unit.
+
+```{r}
+##   No.of.Cases No.of.Households
+## 1           0               29
+## 2           1                9
+## 3           2                2
+## 4           3                2
+
+log_liklihood <- function(alpha, p, c = 1) {
+    29 * log(compute.marginal.prob(k = 0, n = 3, c = c, alpha = alpha, p = p)) +
+        9 * log(compute.marginal.prob(k = 1, n = 3, c = c, alpha = alpha, p = p)) +
+        2 * log(compute.marginal.prob(k = 2, n = 3, c = c, alpha = alpha, p = p)) +
+        2 * log(compute.marginal.prob(k = 3, n = 3, c = c, alpha = alpha, p = p))
+}
+```
+
+
+```{r}
+log_liklihood(alpha = 0, p = 0.5)
+```
+
+#  Exercice 3
+
+```{r}
+init <- function(data, beta){
+    fs <- sum(data$removal != Inf)
+    N <- nrow(data)
+    
+    rbeta(N, 1, 1)
+}
+```
+
