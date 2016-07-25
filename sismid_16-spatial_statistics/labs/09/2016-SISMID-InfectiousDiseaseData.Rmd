@@ -1,0 +1,427 @@
+---
+title: "SISMID Spatial Statistics in Epidemiology and Public Health 
+\\
+
+2016 R Notes: Infectious Disease Data"
+author: |
+  | Jon Wakefield
+  | Departments of Statistics, University of Washington
+date: "`r Sys.Date()`"
+output:
+  beamer_presentation:
+    keep_tex: yes
+  slidy_presentation: default
+---
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+library(knitr)
+opts_chunk$set(collapse=TRUE, fig.align='center', tidy=TRUE, tidy.opts=list(blank=TRUE, width.cutoff=40), warning=FALSE,message=FALSE, cache=TRUE)
+```
+
+## Lower Saxony Measles Data
+
+As a first example of the Held et al. (2005) approach we examine data on measles considered in this paper (actually an updated version).
+
+These data are in the ``surveillance`` package.
+
+The data consist of weekly measles counts over 2001 and 2002, for each of 17 administrative district  Weser-Ems region of Lower Saxony, Germany.
+
+
+Included in the dataset are a $17 \times 17$ matrix of 0/1 entries indicating which areas share a common boundary.
+
+There is also the population that is contained in each area, and various other data including vaccination information.
+
+## Lower Saxony Measles: Reading in the Data
+
+``data("measlesWeserEms")`` is of ``sts`` class.
+
+The data object also contains a map of the region, as a ``SpatialPolygonsDataFrame``
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50)}
+library(surveillance)
+data("measlesWeserEms")
+```
+
+
+## Map of total counts
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50),fig.height=3.0,fig.width=3.0}
+plot(measlesWeserEms, type=observed~unit)
+```
+
+## Map of total counts with labels
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50),fig.height=3,fig.width=3}
+plot(measlesWeserEms, type=observed~unit,
+     population=measlesWeserEms@map$POPULATION / 100000,
+     labels=list(labels="GEN", cex=0.3, font=3))
+```
+
+## Time series of all data
+
+\small
+```{r,collapse=TRUE, fig.height=3,fig.width=4.5,echo=TRUE}
+plot(measlesWeserEms,type=observed~time,legend.opts=NULL)
+```
+
+## Time series with areas of all zeroes excluded
+
+Two areas contain all zeroes
+
+\small
+```{r,collapse=TRUE, fig.show="hide",echo=TRUE}
+measlesWeserEms15 <- measlesWeserEms[,colSums(observed(measlesWeserEms)) > 0]
+plot(measlesWeserEms15)
+```
+
+## 
+
+\small
+```{r,collapse=TRUE, fig.height=4.0,fig.width=4.5,echo=FALSE}
+plot(measlesWeserEms15)
+```
+
+## Animation
+
+The commands 
+
+``library(gridExtra)``
+
+``animate(measlesWeserEms)``
+
+produce an animation.
+
+Try them yourself!
+
+## Model framework
+
+We have a negative binomial model with
+$$E[Y_{it} | \mu_{it}] = \mu_{it}$$
+and
+$$var(Y_{it} | \mu_{it}] = \mu_{it}(1+\psi \mu_{it})$$
+so that $\psi=0$ corresponds to a Poisson model.
+
+## First model
+
+We first fit the model
+$$\mu_{it} = \underbrace{\lambda^{\mbox{\tiny{AR}}} }_{\exp(\alpha_0^{\mbox{\tiny{AR}}})} y_{i, t-1}  + N_{i} \lambda^{\mbox{\tiny{EN}}}_{t},$$
+with endemic term:
+$$
+\log(\lambda^{\mbox{\tiny{EN}}}_{t} ) = \alpha_0^{\mbox{\tiny{EN}}}+\alpha_1 t + \gamma \sin(\omega t) + \delta \cos(\omega t)$$
+where 
+
+* $\lambda^{\mbox{\tiny{AR}}}$ is the epidemic force,
+
+*  $N_{t}$ are  population counts in area $i$,
+
+* $\lambda^{\mbox{\tiny{EN}}}_{t}$ is the endemic term,
+
+* $\alpha_1$ is a slope parameter describing the large scale endemic temporal trend,
+
+* $\gamma$  and $\delta$ are seasonal parameters and  do not vary across areas, $\omega = (2\pi )/52$.
+
+
+## First model
+
+``NegBin1`` gives a single overdisperion parameter, i.e., common to all areas.
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50)}
+f.end1 <- addSeason2formula(f = ~ 1 +  t, S=1, period=52)
+measles.mod1 <- list(
+  ar = list(f = ~ 1),  
+  end = list(f = f.end1, offset = population(measlesWeserEms)),  
+  family = "NegBin1")  
+results.mod1 <- hhh4(measlesWeserEms,control=measles.mod1)
+confint(results.mod1,parm="overdisp")
+```    
+
+This interval suggests a Poisson model, with $\psi=0$ would 
+
+## Results for model 1
+
+\scriptsize
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50),fig.show="hide"}
+summary(results.mod1)
+```           
+   
+   
+## Results for model 1
+
+\small
+``idx2Exp = 1:4`` gives exponentiated parameters and ``amplitudeShift`` tramsforms to the amplitude and phase shift.
+
+\scriptsize
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50),fig.show="hide"} 
+summary(results.mod1, idx2Exp = 1:4, amplitudeShift = TRUE)
+```
+
+## Plot of endemic component
+
+\small
+```{r,collapse=TRUE, fig.height=2.5,fig.width=3}
+# Plot for the 7th area:
+plot(results.mod1,type="season",components="end",main="")
+```
+
+## A second model
+
+We now add a neigborhood term, with simple binary weights given by
+$$\mu_{it} = \underbrace{\lambda^{\mbox{\tiny{AR}}} }_{\exp(\alpha_0^{\mbox{\tiny{AR}}})} y_{i, t-1} + \underbrace{\lambda^{\mbox{\tiny{NE}}}}_{\exp(\alpha_0^{\mbox{\tiny{NE}}})}\sum_{j \in \mbox{\small{ne}}(i)} y_{j,t-1} + N_{it} \lambda^{\mbox{\tiny{EN}}}_{it},$$
+with endemic term:
+$$
+\log(\lambda^{\mbox{\tiny{EN}}}_{it} ) = \alpha_0^{\mbox{\tiny{EN}}}+\alpha_1 t + \gamma \sin(\omega t) + \delta \cos(\omega t)$$
+where 
+
+* $\lambda^{\mbox{\tiny{AR}}}$ is the epidemic force,
+
+* $\lambda^{\mbox{\tiny{NE}}}$ is the neighborhood effect,
+
+*  $N_{it}$ are (possibly standardized) population counts in area $i$ at time $t$,
+
+* $\lambda^{\mbox{\tiny{EN}}}_{it}$ is the endemic term,
+
+* $\gamma$  and $\delta$ are seasonal parameters and  do not vary across areas, $\omega = (2\pi )/52$.
+
+
+## Lower Saxony Measles Data
+
+The neighbourhood matrix is  a distance matrix (neighbourhood orders)
+
+``wji`` is a standardized weight 
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50)}
+wji <- neighbourhood(measlesWeserEms)/rowSums(neighbourhood(measlesWeserEms))
+measles.mod2 <- list(ar = list(f = ~ 1), 
+    ne = list(f = ~ 1, weights = wji),  
+    end = list(f = f.end1, offset = population(measlesWeserEms)),  
+    family = "NegBin1")  
+results.mod2 <- hhh4(measlesWeserEms,control=measles.mod2)
+```    
+
+## Lower Saxony Measles Data
+
+\scriptsize
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50),fig.show="hide"}
+summary(results.mod2)
+```           
+                                                                      
+## Lower Saxony Measles Data
+
+Hence, the mean model is
+\begin{small}
+\begin{eqnarray*}
+E[Y_{i,t+1}|y_{it},y_{jt}] &=& \exp( -0.38) y_{it} + \exp(-25.05) \sum_{j \in \mbox{\small{ne}}(i)} y_{jt} \\&+&
+\exp \left[ 0.40 + 0.0029 \times t + 1.0 \sin(\omega t) -0.53  \cos(\omega t) \right]
+\end{eqnarray*}
+\end{small}
+The variance is
+\begin{small}
+$$var (Y_{i,t+1}|y_{it} ) = E[Y_{it}|y_{it}] (1+ 2.23 \times E[Y_{it}|y_{it}] ).$$
+\end{small}
+
+The fits are different in each of the areas due to the two epidemic components (AR and NE).
+
+## Lower Saxony Measles Data
+
+\small
+```{r,collapse=TRUE, fig.height=3,fig.width=4}
+# Plot for the 7th area:
+plot(results.mod2,unit=7,legend=TRUE)
+```
+
+## Neighbors summary
+
+
+```{r,collapse=TRUE, fig.height=3,fig.width=4,echo=FALSE}
+plot(results.mod2, type="neweights")
+```
+
+
+## Lower Saxony Measles Data
+ 
+We now extend the model to add area-specific intercepts (fixed effects) to the endemic component.
+ 
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50),fig.show="hide"}
+f.end2 <- addSeason2formula(f = ~ -1 + 
+  fe(1, which=rep(TRUE, ncol(measlesWeserEms))) + t, S=1, period=52)
+measles.mod3 <- list(ar = list(f = ~ 1), 
+     ne = list(f = ~ 1, weights = wji),  
+        end = list(f = f.end2, offset = population(measlesWeserEms)),  
+            family = "NegBin1")             
+results.mod3 <- hhh4(measlesWeserEms, control=measles.mod3)
+```
+
+## Lower Saxony Measles Data
+ 
+\scriptsize
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50)}
+cbind(results.mod3$coeff,results.mod3$se)
+```
+
+
+
+## Lower Saxony Measles Data
+
+\tiny
+```{r,collapse=TRUE, fig.height=3.0,fig.width=4.5}
+plot(results.mod3, unit=7,legend=TRUE)
+```
+
+## Residuals
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50),fig.show="hide"}
+y <- measlesWeserEms@observed[2:104,] # Notice no first
+time <- matrix(rep(measlesWeserEms@epoch,17),nrow=104,ncol=17)
+time <- time[-1,]
+#
+mu3 <- fitted(results.mod3)
+res3 <- (y-mu3)/sqrt(mu3*(1+1.74*mu3))
+par(mfrow=c(1,3))
+plot(mu3~y,xlab="Observed",ylab="Fitted",type="n")
+for (i in 1:17) points(mu3[,i]~y[,i],col=i)
+abline(0,1,col="green")
+plot(res3~mu3,xlab="Fitted",ylab="Residuals",type="n")
+for (i in 1:17) points(res3[,i]~mu3[,i],col=i)
+abline(0,0,col="green")
+plot(res3~time,xlab="Time (week)",ylab="Residuals",type="n")
+for (i in 1:17) points(res3[,i]~time[,i],col=i)
+abline(0,0,col="green")
+```  
+
+## Residuals
+
+\tiny
+```{r,collapse=TRUE, fig.height=3.0,fig.width=4.5,echo=FALSE}
+plot(mu3~y,xlab="Observed",ylab="Fitted",type="n")
+for (i in 1:17) points(mu3[,i]~y[,i],col=i)
+abline(0,1,col="green")
+```  
+
+## Residuals
+
+\tiny
+```{r,collapse=TRUE, fig.height=3.0,fig.width=4.5,echo=FALSE}
+plot(res3~mu3,xlab="Fitted",ylab="Residuals",type="n")
+for (i in 1:17) points(res3[,i]~mu3[,i],col=i)
+abline(0,0,col="green")
+
+```  
+
+
+## Residuals
+
+\tiny
+```{r,collapse=TRUE, fig.height=3.0,fig.width=4.5,echo=FALSE}
+plot(res3~time,xlab="Time (week)",ylab="Residuals",type="n")
+for (i in 1:17) points(res3[,i]~time[,i],col=i)
+abline(0,0,col="green")
+```  
+
+
+## Random effects model, no neighborhood
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50),fig.show="hide"}
+measles.mod4 <- list(
+    ar = list(f = ~ 1),
+    end = list(f = addSeason2formula(~0 + ri(type="iid"), S=1, period=52),offset = population(measlesWeserEms)),
+    family = "NegBin1")
+measles.res4 <- hhh4(measlesWeserEms,measles.mod4)
+```
+## fitted values for a single unit
+
+```{r,collapse=TRUE, fig.height=3,fig.width=4,echo=FALSE}
+plot(measles.res4, units=7)
+```
+
+## plot the multiplicative effect of seasonality
+
+```{r,collapse=TRUE, fig.height=3,fig.width=4,echo=FALSE}
+plot(measles.res4, type="season")
+```
+
+## random intercepts of the endemic component
+```{r,collapse=TRUE, fig.height=3,fig.width=4,echo=TRUE}
+plot(measles.res4, type="ri", component="end", labels=list(cex=0.3, font=3))
+```
+
+## Neighbors summary
+
+
+```{r,collapse=TRUE, fig.height=3,fig.width=4,echo=FALSE}
+plot(measles.res4, type="neweights")
+```
+
+
+## Random effects model
+
+Without normalization, power-law weights are $w_{ji} = o_{ji}^{-d}$, where $o_{ji}$ is the order of neighbourhood between regions $i$ and $j$.
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50),fig.show="hide"}
+measles.mod5 <- list(
+  end=list(addSeason2formula(~0 + ri(type="iid"), S=1, period=52)), 
+  ar=list(f=~1), 
+  ne=list(f = ~ -1+ri(type="iid",corr="all"), 
+    weights=W_powerlaw(maxlag=5)),family="NegBin1")
+measles.res5 <- hhh4(measlesWeserEms, measles.mod5)
+```
+
+## Neighborhood weights
+
+Plot the (estimated) neighbourhood weights (``neweights``) as a function of neighbourhood order (shortest-path distance between regions), i.e., $w_{ji} \sim o_{ji}$. 
+
+```{r,collapse=TRUE, fig.height=3,fig.width=4,echo=TRUE}
+plot(measles.res5, type="neweights")
+```
+
+## random intercepts of the endemic component
+```{r,collapse=TRUE, fig.height=3,fig.width=4,echo=TRUE}
+plot(measles.res5,type="fitted",units=c(7,12))
+```
+
+
+## Random effects in all
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50),fig.show="hide"}
+f.end <- addSeason2formula(~0 + ri(type="iid",corr="all"), S=1, period=52)
+measles.mod6 <- list(
+  end=list(f.end,offset = population(measlesWeserEms)),
+  ar=list(f=~-1+ri(type="iid",corr="all")), 
+  ne=list(f = ~ -1+ri(type="iid",corr="all"), 
+    weights=W_powerlaw(maxlag=5)),family="NegBin1")
+measles.res6 <- hhh4(measlesWeserEms, measles.mod6)
+```
+
+## Results
+
+\scriptsize
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50),fig.show="hide"}
+summary(measles.res6)
+```
+
+
+## random intercepts of the endemic component
+
+```{r,collapse=TRUE, fig.height=3,fig.width=4,echo=TRUE}
+plot(measles.res6,type="fitted",units=c(12))
+```
+
+
+## Random intercepts of the endemic component
+```{r,collapse=TRUE, fig.height=3,fig.width=4,echo=TRUE}
+plot(measles.res6, type="ri", component="ar")
+```
+
+## Random intercepts of the endemic component
+```{r,collapse=TRUE, fig.height=3,fig.width=4,echo=TRUE}
+plot(measles.res6, type="ri", component="ne")
+```
+
+

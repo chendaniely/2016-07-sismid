@@ -1,0 +1,523 @@
+---
+title: "SISMID Spatial Statistics in Epidemiology and Public Health 
+\\
+
+2016 R Notes: Introduction"
+author: |
+  | Jon Wakefield
+  | Departments of Statistics and Biostatistics, University of Washington
+
+date: "`r Sys.Date()`"
+output:
+  beamer_presentation:
+    keep_tex: yes
+    highlight: tango
+  slidy_presentation: default
+linkcolor: blue
+  
+---
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+library(knitr)
+opts_chunk$set(collapse=TRUE, fig.align='center', tidy=TRUE, tidy.opts=list(blank=TRUE, width.cutoff=50,strip.white=TRUE), warning=FALSE,message=FALSE,cache=TRUE)
+```
+
+## R for Spatial Analysis
+
+``R`` has extensive spatial capabilities, the 
+Spatial task view is [\textcolor{red}{here}](http://cran.r-project.org/web/views/Spatial.html) 
+
+Chris Fowler's R GIS class site is 
+[\textcolor{red}{here}](http://csde.washington.edu/services/gis/workshops/SPATIALR.shtml)
+
+Other GIS resources 
+[\textcolor{red}{here}](http://geostat-course.org/node)
+
+Some of the notes that follow are build on Roger Bivand's notes taken from the latter site, and these are based on Bivand et al (2013), which  is the reference book!
+
+To get R code alone then load the ``knitr`` library and then type
+``purl("SISMID-Introduction.Rmd")`` from the directory with this file in.
+
+## Representing Spatial Data
+
+Spatial classes\footnote{Class definitions are objects that contain the formal definition of a class of R objects, usually referred to as an S4 class} were defined to represent and handle spatial data, so that data can be exchanged between different classes.
+
+The ``sp`` library is the workhorse for representing spatial data.
+
+The most basic spatial object is a 2d or 3d point: a set of coordinates may be used to define a ``SpatialPoints`` object.
+
+From the help function:
+
+\scriptsize
+`SpatialPoints(coords, proj4string=CRS(as.character(NA)),bbox = NULL)`
+
+\normalsize
+
+- PROJ.4 is a library for performing conversions between cartographic projections.
+
+- The points in a ``SpatialPoints`` object may be associated with a set of attributes to give a ``SpatialPointsDataFrame`` object.
+
+## Creating a Spatial Object
+
+As an example, the `splancs` library was pre-``sp`` and so does not use spatial objects.
+
+`splancs` contains a number of useful functions for analyzing spatial referenced point data.
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50)}
+library(sp)
+library(splancs)
+data(southlancs) # case control data
+summary(southlancs)
+```
+
+## Creating a Spatial Object
+
+We convert into a ``SpatialPoints`` object and then create a ``SpatialPointsDataFrame`` data frame.
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50)}
+SpPtsObj <- SpatialPoints(southlancs[,c("x","y")])
+summary(SpPtsObj)
+SpPtsDFObj <- SpatialPointsDataFrame(coords=SpPtsObj,
+                   data=as.data.frame(southlancs$cc))
+```
+## Spatial Lines and Polygons
+
+ A ``Line`` object is just a collection of 2d coordinates while a ``Polygon`` object is a ``Line`` object with equal first and last coordinates.
+ 
+A ``Lines`` object is a list of ``Line`` objects, such as all the contours at a single elevation; the same relationship holds between a ``Polygons`` object and a list of ``Polygon`` objects, such as islands belonging to the same county.
+
+``SpatialLines`` and ``SpatialPolygons`` objects are made using lists of ``Lines`` and ``Polygons`` objects, respectively.
+
+## Spatial Data Frames
+
+``SpatialLinesDataFrame`` and ``SpatialPolygonsDataFrame`` objects are defined using ``SpatialLines`` and ``SpatialPolygons`` objects and standard data frames, and the ID fields are here required to match the data frame row names.
+
+For data on rectangular grids (oriented N-S, E-W) there are two representations: ``SpatialPixels`` and ``SpatialGrid``.
+
+``Spatial*DataFrame`` family objects usually behave like data frames, so most data frame techniques work with the spatial versions, e.g. ``[]`` or ``\$``.
+
+## Visualizing Spatial Data
+
+We demonstrate how points and polygons can be plotted on the same graph.
+
+Note that the default is for axes not to be included.
+
+The ``meuse`` data (in the ``sp`` library) have been extensively used to illutrate spatial modeling.
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50)}
+data(meuse) # A regular data frame
+coords <- SpatialPoints(meuse[,c("x","y")])
+summary(coords)
+```
+
+## Visualizing Spatial Data
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50)}
+meuse1 <- SpatialPointsDataFrame(coords,meuse)
+data(meuse.riv)
+river_polygon <- Polygons(list(Polygon(meuse.riv)),ID="meuse")
+rivers <- SpatialPolygons(list(river_polygon))
+summary(rivers)
+```
+
+## Visualizing Spatial Data
+
+
+
+```{r, echo=TRUE, collapse=TRUE,fig.height=3.5,fig.width=3,fig.cap="The Meuse river and sampling points",tidy.opts=list(width.cutoff=50)}
+plot(as(meuse1,"Spatial"),axes=T)
+plot(meuse1,add=T)
+plot(rivers,add=T)
+```
+
+
+## Spatial Pixels and Grids
+
+For data on rectangular grids (oriented N-S, E-W) there are two representations: ``SpatialPixels`` and ``SpatialGrid``.
+
+``SpatialPixels`` are like ``SpatialPoints`` objects, but the coordinates have to be regularly spaced. Coordinates and grid indices are stored.
+
+``SpatialPixelDataFrame`` objects only store attribute data where it is present, but need to store the coordinates and grid indices of those grid cells.
+
+``SpatialGridDataFrame`` objects do not need to store coordinates, because they fill the entire defined grid, but they need to store ``NA`` values where attribute values are missing.
+
+## Visualizaing Spatial Data
+
+Plotting spatial data can be provided in a variety of ways, see Chapter 3 of Bivand et al. (2013).
+
+The most obvious is to use the regular plotting functions, by converting ``Spatial`` dataframes to regular dataframes, for example using ``as.data.frame``.
+
+Trellis graphics (which produce conditional plots) are particularly useful for plotting maps over time.
+
+## Visualizing Spatial Data
+
+ We construct a ``SpatialPixelsDataFrame`` object for the Meuse river grid data provided.
+ 
+``meuse.grid`` is a grid with 40 m x 40 m spacing that 
+covers the Meuse study area
+
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50)}
+data(meuse.grid) 
+coords <- SpatialPixels(SpatialPoints(meuse.grid[,c("x","y")]))
+meuseg1 <- SpatialPixelsDataFrame(coords,meuse.grid)
+```
+
+## Visualizing Spatial Data
+
+Plotting a grid by the Meuse river.
+
+\scriptsize
+```{r, echo=TRUE, collapse=TRUE,fig.height=3.5,fig.width=3, tidy.opts=list(width.cutoff=50)}
+plot(rivers,axes=T,col="azure1",xlim=c(176000,182000),
+       ylim=c(329400,334000))
+box()
+plot(meuseg1,add=T,col="grey60",cex=0.15)
+```
+
+## Plotting the variables in ``meuse.grid``
+
+
+\scriptsize
+```{r, echo=TRUE, collapse=TRUE,fig.height=3.2,fig.width=3,tidy.opts=list(width.cutoff=50)}
+data(meuse.grid)
+names(meuse.grid)
+coordinates(meuse.grid) = ~x+y
+proj4string(meuse.grid) <- CRS("+init=epsg:28992")
+gridded(meuse.grid) = TRUE
+spplot(meuse.grid)
+```
+
+## Mapping a continous variable
+
+Now we plot a continuous variable, using a particular class inteval style.
+
+The "Fisher-Jenks" style uses the "natural breaks" of class intervals bases on minimizing the within-class variance.
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50)}
+library(classInt)
+library(RColorBrewer)
+pal <- brewer.pal(3,"Blues")
+fj5 <- classIntervals(meuse1$zinc,n=5,style="fisher")
+fj5cols <- findColours(fj5,pal)
+```
+
+##  Mapping a continous variable
+
+
+\small
+```{r, echo=TRUE, collapse=TRUE,fig.height=3.4,fig.width=3.5, fig.cap="Illustration of Fisher-Jenks natural breaks with five classes, grey vertical lines denote the break points.", tidy.opts=list(width.cutoff=29)}
+plot(fj5,pal=pal,main="")
+```
+
+
+## Mapping a continous variable
+
+Map the zinc levels in the study region.
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50),fig.show='hide'}
+plot(as(meuse1,"Spatial"),axes=T)
+plot(meuse1,col=fj5cols,pch=19,add=T)
+legend("topleft",fill=attr(fj5cols,"palette"),
+      legend=names(attr(fj5cols,"table")),bty="n")
+```
+
+## Mapping a continous variable
+
+\scriptsize
+```{r, echo=TRUE, collapse=TRUE,fig.height=4.5,fig.width=4.5,  tidy.opts=list(width.cutoff=29),echo=FALSE}
+plot(as(meuse1,"Spatial"),axes=T)
+plot(meuse1,col=fj5cols,pch=19,add=T)
+legend("topleft",fill=attr(fj5cols,"palette"),
+      legend=names(attr(fj5cols,"table")),bty="n",cex=.5)
+```
+
+## Mapping a continous variable
+
+An alternative display as a "bubble" plot.
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50),fig.show='hide'}
+library(lattice)
+bubble(meuse1,zcol="zinc",main="Zinc levels",maxsize=.5,key.entries=100*2^(0:4))
+```
+
+## Mapping a continous variable
+
+
+\scriptsize
+```{r, echo=TRUE, collapse=TRUE,fig.height=3.5,fig.width=4,tidy.opts=list(width.cutoff=29),echo=FALSE}
+library(lattice)
+bubble(meuse1,zcol="zinc",main="Zinc levels",maxsize=1.8,key.entries=100*2^(0:4))
+```
+
+## John Snow
+
+For fun, let's look at the poster child of health mapping.
+
+The Snow data consists of the relevant 1854 London streets, the location of 578 deaths from cholera, and the position of 13 water pumps (wells) that can be used to re-create John Snow's map showing deaths from cholera in the area surrounding Broad Street, London in the 1854 outbreak. 
+
+The following code was taken from 
+[\textcolor{red}{here}](http://www.inside-r.org/packages/cran/HistData/docs/Snow)
+
+
+
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50)}
+library(HistData)
+data(Snow.deaths)
+data(Snow.pumps)
+data(Snow.streets)
+data(Snow.polygons)
+```
+
+## John Snow
+
+We first create a ``SpatialLines`` object containing the coordinates of the streets using  the  ``Lines`` function 
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=40)}
+# Streets
+slist <- split(Snow.streets[,c("x","y")],
+            as.factor(Snow.streets[,"street"]))
+Ll1 <- lapply(slist,Line)
+Lsl1 <- Lines(Ll1,"Street") 
+Snow.streets.sp <- SpatialLines(list(Lsl1))
+```
+
+## John Snow
+
+Display the streets and then add the deaths and pumps (with labels).
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50),fig.show="hide"}
+plot(Snow.streets.sp, col="gray")
+# Deaths
+Snow.deaths.sp = SpatialPoints(Snow.deaths[,c("x","y")])
+plot(Snow.deaths.sp, add=TRUE, col ='red', pch=15, cex=0.6)
+ # Pumps
+spp <- SpatialPoints(Snow.pumps[,c("x","y")])
+Snow.pumps.sp <- 
+   SpatialPointsDataFrame(spp,Snow.pumps[,c("x","y")])
+plot(Snow.pumps.sp, add=TRUE, col='blue', pch=17, cex=1.0)
+text(Snow.pumps[,c("x","y")], labels=Snow.pumps$label, 
+       pos=1, cex=0.8)
+```
+
+## John Snow: red squares are deaths, blue triangles are pumps
+ 
+```{r,collapse=TRUE, fig.height=5,fig.width=5,echo=FALSE}
+plot(Snow.streets.sp, col="gray",fig.cap="John Snow's cholera map of London")
+ # deaths
+Snow.deaths.sp = SpatialPoints(Snow.deaths[,c("x","y")])
+plot(Snow.deaths.sp, add=TRUE, col ='red', pch=15, cex=0.6)
+ # pumps
+spp <- SpatialPoints(Snow.pumps[,c("x","y")])
+Snow.pumps.sp <- 
+   SpatialPointsDataFrame(spp,Snow.pumps[,c("x","y")])
+plot(Snow.pumps.sp, add=TRUE, col='blue', pch=17, cex=1.0)
+text(Snow.pumps[,c("x","y")], labels=Snow.pumps$label, 
+       pos=1, cex=0.8)
+```
+
+## Reading Shapefiles
+
+ESRI (a company one of whose products is ArcGIS) shapefiles consist of three files, and this is a common form. 
+
+The first file (*.shp) contains the geography of each shape. 
+
+The second file (*.shx) is an index file which contains record offsets. 
+
+The third file (*.dbf) contains feature attributes with one record per feature.
+
+## Reading Shapefiles
+
+The Washington state Geospatial Data Archive
+[\textcolor{red}{here}](http://wagda.lib.washington.edu/) contains data that can be read into ``R``. 
+
+As an example, consider  Washington county data that was downloaded from wagda.
+
+The data 
+consists of the three files: wacounty.shp, wacounty.shx, wacounty.dbf.
+
+The following code reads in these data and then draws a county level
+map of 1990 populations, and a map with centroids.
+
+
+## Reading Shapefiles
+
+First load the libraries.
+
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50)}
+library(maps)
+library(shapefiles)
+library(maptools)
+```
+
+## Reading Shapefiles
+
+\scriptsize
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50)}
+# The following is useful to see if you have the 
+# versions you want
+sessionInfo()
+```
+
+## Reading Shapefiles
+
+Note that there are problems with the files, which are sorted by using the ``repair=T`` argument.
+
+The data can be saved from here:
+[\textcolor{red}{here}]("http://faculty.washington.edu/jonno/SISMIDmaterial/wacounty.shp")
+
+\scriptsize
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50)}
+
+wacounty <- readShapePoly(fn="examples/wacounty",
+  proj4string=CRS("+proj=longlat"),repair=T) 
+# enter wacounty.shp
+names(wacounty)
+# Let's see what these variables look like
+wacounty$AreaName[1:3] # county names
+wacounty$AreaKey[1:3] # FIPS codes
+```
+
+## Drawing a map
+
+We look at some variables.
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=40)}
+wacounty$INTPTLAT[1:3] # latitude
+wacounty$INTPTLNG[1:3] # longitude
+wacounty$CNTY[1:3]    
+wacounty$TotPop90[1:3]
+```
+
+## Drawing a map
+
+We look at some variables, and then set up the colors to map.
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=40),fig.show="hide"}
+plotvar <- wacounty$TotPop90 # variable we want to map
+nclr <- 8 # next few lines set up the color scheme for plotting
+plotclr <- brewer.pal(nclr,"BuPu")
+brks <- round(quantile(plotvar,probs=seq(0,1,1/(nclr))),digits=1)
+colornum <- findInterval(plotvar,brks,all.inside=T)
+colcode <- plotclr[colornum]
+plot(wacounty)
+plot(wacounty,col=colcode,add=T)
+legend(-119,46,legend=leglabs(round(brks,digits=1)),fill=plotclr,cex=0.4,bty="n")
+```
+
+## Drawing a map
+
+```{r,collapse=TRUE, fig.height=4.5,fig.width=4.5,echo=FALSE,fig.cap="1990 Washington population counts by census tracts"}
+plot(wacounty)
+plot(wacounty,col=colcode,add=T)
+legend(-119,46,legend=leglabs(round(brks,digits=1)),fill=plotclr,cex=0.4,bty="n")
+```
+
+## Drawing a map
+
+As an alternative we can use the ``spplot`` function, which uses lattice (trellis) plot methods for spatial data with attributes.
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=40),fig.show="hide"}
+spplot(wacounty,zcol="TotPop90")
+```
+
+## Drawing a map: an alternative way
+
+
+```{r,collapse=TRUE, fig.height=4.5,fig.width=4.5,echo=FALSE,fig.cap="1990 Washington population counts by county"}
+spplot(wacounty,zcol="TotPop90")
+```
+
+## Drawing a census tract map
+
+We repeat but now map populations at the census tract level.
+
+\scriptsize
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=40),fig.show="hide"}
+watract <- readShapePoly(fn="examples/watract1",proj4string=
+ CRS("+proj=longlat"),repair=T) # 
+names(watract)
+plotvar <- watract$TotPop90 # variable we want to map
+brks <- round(quantile(plotvar,probs=seq(0,1,1/(nclr))),digits=1)
+colornum <- findInterval(plotvar,brks,all.inside=T)
+colcode <- plotclr[colornum]
+plot(watract)
+plot(watract,col=colcode,add=T)
+legend(-119,46,legend=leglabs(round(brks,digits=1)),
+         fill=plotclr,cex=0.4,bty="n")
+```
+
+## Drawing a cenusus tract map
+
+```{r,collapse=TRUE, fig.height=4.5,fig.width=4.5,echo=FALSE,fig.cap="1990 Washington populations by census tract"}
+plot(watract)
+plot(watract,col=colcode,add=T)
+legend(-119,46,legend=leglabs(round(brks,digits=1)),
+         fill=plotclr,cex=0.4,bty="n")
+```
+
+## A county map of North Carolina with text
+
+\scriptsize
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=40),fig.show="hide"}
+library(ggplot2)  # For map_data. It's just a wrapper; should just use maps.
+library(sp)
+library(maps)
+getLabelPoint <- # Returns a county-named list of label points
+function(county) {Polygon(county[c('long', 'lat')])@labpt}
+df <- map_data('county', 'north carolina')  # NC region county data
+centroids <- by(df, df$subregion, getLabelPoint)    # Returns list
+centroids <- do.call("rbind.data.frame", centroids) # Convert to Data Frame
+names(centroids) <- c('long', 'lat') # Appropriate Header
+map('county', 'north carolina')
+text(centroids$long, centroids$lat, rownames(centroids), offset=0, cex=0.4)
+```
+## A county map of North Carolina with text
+
+```{r,collapse=TRUE, fig.height=4.5,fig.width=5.0,echo=FALSE}
+map('county', 'north carolina')
+text(centroids$long, centroids$lat, rownames(centroids), offset=0, cex=0.4)
+```
+## Getting fancy
+
+Spatial data can be displayed on on interactive web-maps using the open-source JavaScript library Leaflet.
+
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=40)}
+library(maptools)
+library(sp)
+library(leafletR)
+SP <- readShapePoly(system.file("shapes/sids.shp",  
+                    package="maptools")[1],
+                    proj4string=CRS("+proj=longlat +datum=WGS84 
+                                     +no_defs +ellps=WGS84 
+                                     +towgs84=0,0,0"))
+SP4leaflet <- toGeoJSON(data=SP, dest=tempdir(), name="BIR79")
+SPleaflet  <- leaflet(data=SP4leaflet, dest=tempdir(), 
+                    title="Trying to plot BIR79",
+                    base.map="osm", popup="*")
+```
+## Getting fancy
+
+This code produces a html with the births in 1979 in North Carolina plotted over a map.
+
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=40)}
+brks <- seq(0, max(SP$BIR79), by=5000)
+clrs <- colorRampPalette(c("blue","yellow", "red"))(7)
+stl <- styleGrad(prop="BIR79", breaks=brks, style.val=clrs, 
+                    out=1, leg="BIR79")
+SPleaflet  <- leaflet(data=SP4leaflet, dest=tempdir(), 
+                    title="SISMID plot of BIR79", base.map="osm", 
+                    style=stl, popup="*")
+SPleaflet
+```
+

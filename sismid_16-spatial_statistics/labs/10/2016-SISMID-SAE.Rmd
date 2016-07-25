@@ -1,0 +1,636 @@
+---
+title: "SISMID Spatial Statistics in Epidemiology and Public Health 
+\\
+
+2016 R Notes: Small Area Estimation"
+author: |
+  | Jon Wakefield
+  | Departments of Statistics, University of Washington
+date: "`r Sys.Date()`"
+output:
+  beamer_presentation:
+    keep_tex: yes
+  slidy_presentation: default
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+library(knitr)
+opts_chunk$set(collapse=TRUE, fig.align='center', tidy=TRUE, tidy.opts=list(blank=TRUE, width.cutoff=40,strip.white=TRUE), warning=FALSE,message=FALSE,cache=TRUE)
+```
+
+## Small Area Estimation (SAE)
+
+These notes were prepared with the help of Jessica Godwin, and Laina Mercer, Cici Bauer and Thomas Lumley also worked on the methodology and coding, see Chen et al. (2014) and Mercer et al. (2014) for further methodological details.
+
+We take as example, the estimation of the prevalence of Type II diabetes in health reporting areas (HRAs) in King County, using BRFSS data.
+
+These survey data are collected using a complex stratified design.
+
+The design must be acknowledged in the analysis, but we would like to use spatial smoothing to obtain estimates with more precision. 
+
+## Overview of analyses
+
+We present results from the following analyses:
+
+- Naive (ie unweighted, unsmoothed)
+
+- Binomial spatial smoothing model, ignoring weighting
+
+- Weighted (unsmoothed)
+
+- Smoothed and weighted
+
+## Read in Data
+
+First, we need to read in the King County BRFSS Stata dataset using the \textcolor{blue}{\texttt{foreign}} package.
+
+\scriptsize
+```{r, echo=TRUE, message=FALSE, warning=FALSE, tidy=TRUE, tidy.opts=list(width.cutoff=40)}
+library(foreign)
+library(SpatialEpi)
+kingdata <- read.dta('ct0913all.dta')
+names(kingdata)
+```
+
+\normalsize
+There are ``r dim(kingdata)[1]`` observations, i.e., individuals in the sample. These data were collected over the period 2009-2013.
+
+## Read in Data
+
+Next, read in the shape files for King County HRAs using the \textcolor{blue}{\texttt{rgdal}} package.  
+
+\small
+```{r, echo=TRUE, message=FALSE, warning=FALSE, tidy=TRUE, tidy.opts=list(width.cutoff=40)}
+library(rgdal)
+kingshape <- readOGR('HRA_ShapeFiles',
+                     layer = 'HRA_2010Block_Clip')
+names(kingshape)
+```
+## The study region with HRAs
+
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50), fig.height=4.5, fig.width = 5, eval = TRUE}
+plot(kingshape)
+```
+
+## Data cleaning
+
+Our outcome of interest is Type II diabetes and we will drop observations with missing diabetes data.
+
+Our small area of interest is the HRA. We will also drop observations with missing HRA.
+
+\small
+```{r, echo=TRUE, message= FALSE, warning= FALSE, tidy=TRUE, tidy.opts=list(width.cutoff=40)}
+kingdata <- subset(kingdata, !is.na(kingdata$diab2))
+kingdata <- subset(kingdata, !is.na(kingdata$hracode))
+names(kingdata)[names(kingdata)=='_ststr'] <- 'strata'
+n.area <- length(unique(kingdata$hracode))
+```
+
+
+\normalsize
+There are ``r n.area`` HRAs and we are left with ``r dim(kingdata)[1]`` observations.
+
+## Naive estimates
+
+Let $y_i$ and $m_i$ be the number of individuals flagged as having type II diabetes and the denominators in the $i=1,\dots,n$ areas.
+
+We form naive estimates 
+$$\hat p_i = \frac{y_i}{m_i},$$ with associated standard errors
+$$\sqrt{\frac{\hat{p}_i(1-\hat{p}_i)}{m_i}}.$$
+
+## Naive estimates
+
+\small
+```{r, echo=TRUE, message= FALSE, warning= FALSE, tidy=TRUE,fig.show="hide",tidy.opts=list(width.cutoff=40)}
+hras <- as.character(unique(kingdata$hracode))
+props <- matrix(NA,nrow=n.area,ncol=5)
+props <- as.data.frame(props)
+colnames(props) <- c("hracode","p.hat","se.p.hat","y.i","n.i")
+props[,1] <- hras
+for(i in 1:n.area){
+  props[i,'p.hat'] <- mean(kingdata[kingdata$hracode ==  props[i,'hracode'],'diab2'])
+    props[i,'y.i'] <- sum(kingdata[kingdata$hracode == props[i,'hracode'],'diab2'])
+  props[i,'n.i'] <- length(kingdata[kingdata$hracode == props[i,'hracode'],'diab2'])
+  naivevar <- props[i,'p.hat']*(1-props[i,'p.hat'])/props[i,'n.i']
+  props[i,'se.p.hat'] <- sqrt(naivevar)
+}
+```
+
+## Mapping of sample sizes
+
+We map the number of individuals who answered the diabetes question in each HRA.
+
+\small
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50), fig.show="hide", eval = TRUE,echo=T}
+kingshapepoly <- SpatialPolygons(kingshape@polygons, proj4string = kingshape@proj4string)
+summary(props[,'n.i'])
+par(mar=c(1,1,1,1))
+mapvariable(props[,'n.i'], kingshapepoly, ncut=1000,
+            nlevels=10)
+```
+
+## Mapping of sample sizes
+
+\small
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50), fig.height=3.5, fig.width = 3.5, eval = TRUE,echo=F}
+par(mar=c(1,1,1,1))
+mapvariable(props[,'n.i'], kingshapepoly, ncut=1000,
+            nlevels=10)
+```
+
+## Mapping of naive estimates
+
+Map $y_i/n_i$, $i=1,\dots,48$.
+
+\small
+```{r, echo=TRUE, message= FALSE, warning= FALSE, tidy=TRUE,fig.show="hide",tidy.opts=list(width.cutoff=40)}
+par(mar=c(1,1,1,1))
+mapvariable(props[,'p.hat'], kingshapepoly, ncut=1000,
+            nlevels=10, lower=0, upper=0.25)
+```
+
+
+## Mapping of naive estimates
+
+\small
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50), fig.height=3.5, fig.width = 3.5, eval = TRUE,echo=F}
+par(mar=c(1,1,1,1))
+mapvariable(props[,'p.hat'], kingshapepoly, ncut=1000,
+            nlevels=10, lower=0, upper=0.25)
+```
+
+## Naive binomial model
+
+We use the \textcolor{blue}{\texttt{INLA}} package to fit the following Bayesian hierarchical model:
+\begin{eqnarray*}
+y_i | p_i &\sim& \mbox{Binomial}(N_i,p_i)\\
+\theta_i &=& \log \left( \frac{p_i}{1-p_i}\right) = \beta_0 + \epsilon_i+S_i,\\
+\epsilon_i &\sim & N(0,\sigma_\epsilon^2)\\
+  S_i | S_j , j \in \text{ne}(i) &\sim& N\left(\bar{S_j}, \dfrac{\sigma_s^2}{m_i} \right).
+ \end{eqnarray*}
+With priors on $\beta_0,\sigma_\epsilon^2,\sigma_s^2$.
+
+## Create .graph file for spatial model INLA implementation
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=40)}
+library(spdep)
+king.neigh <- poly2nb(kingshapepoly)
+library(INLA)
+nb2INLA('HRA_Shapefiles/KingCoNb.graph',king.neigh)
+```
+
+
+## Naive binomial model
+
+The following code carries out an unweighted binomial analysis, with global and spatial smoothing, the latter via the ICAR model.
+
+\small
+```{r, echo = TRUE, message = FALSE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=40)}
+props <- props[order(props$hracode),]
+props$unstruct <- props$struct <- 1:n.area
+formula = y.i ~ 1 + f(struct,model='besag', adjust.for.con.comp=TRUE, 
+                      constr=TRUE,graph='HRA_Shapefiles/KingCoNb.graph') +
+  f(unstruct, model='iid', param=c(0.5,0.008))
+mod.smooth.unweighted <- inla(formula,family="binomial", data=props, Ntrials=n.i, control.predictor = list(compute = TRUE))
+```
+
+## Naive binomial model
+
+
+\small
+```{r, echo = TRUE, message = FALSE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=40)}
+# Post medians of prevalences
+psmoothunwt <- mod.smooth.unweighted$summary.fitted.values[,'0.5quant']
+# Post standard deviations of prevalences
+psmoothunwtsd <- mod.smooth.unweighted$summary.fitted.values[,'sd']
+# Post medians of unstructured random effects
+unwtunstruct <- mod.smooth.unweighted$summary.random$unstruct[,"0.5quant"]
+# Post medians of spatial random effects
+unwtstruct <- mod.smooth.unweighted$summary.random$struct[,"0.5quant"]
+```
+
+
+## Unstructured random effects
+
+\small
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50), fig.height=2.5, fig.width = 3, eval = TRUE}
+par(mar=c(1,1,1,1))
+mapvariable(unwtunstruct, kingshapepoly, ncut=1000, nlevels=10)
+```
+
+## Structured (spatial) random effects
+
+\small
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50), fig.height=2.5, fig.width = 3, eval = TRUE}
+par(mar=c(1,1,1,1))
+mapvariable(unwtstruct, kingshapepoly, ncut=1000, nlevels=10)
+```
+
+## Proportion of variation that is spatial
+
+\small
+```{r, message=FALSE, collapse=TRUE, tidy=TRUE,tidy.opts=list(width.cutoff=50),fig.height=3.5,fig.width=3.5 ,eval=T}
+nareas <- 48
+mat.marg <- matrix(NA,nrow=nareas,ncol=1000)
+m <- mod.smooth.unweighted$marginals.random$struct
+for (i in 1:nareas){
+  Sre <- m[[i]]
+  mat.marg[i,] <- inla.rmarginal(1000,Sre)
+}
+var.Sre <- apply(mat.marg,2,var)
+var.eps <- inla.rmarginal(1000,inla.tmarginal(function(x) 1/x,mod.smooth.unweighted$marginals.hyper$"Precision for unstruct"))
+mean(var.Sre)
+mean(var.eps)
+perc.var.Sre <- mean(var.Sre/(var.Sre+var.eps))
+```
+
+\normalsize
+Percentage variability that is spatial is ``r format(100*perc.var.Sre,digits=2)``\%.
+
+## Predicted Prevalence: Rates higher in the South of KC
+
+\scriptsize
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50), fig.height=2.5, fig.width = 3, eval = TRUE}
+library(SpatialEpi)
+par(mar=c(1,1,1,1))
+mapvariable(psmoothunwt, kingshapepoly, ncut=1000, nlevels=10, lower=0, upper=0.25)
+```
+
+## Comparison of estimates
+
+We plot the smoothed estimates versus the naive estimates
+
+There is little smoothing here, as the within HCA sample sizes are relatively large.
+
+We also plot the posterior standard deviations against the standard errors and see that the former are a little smaller, reflecting the use of all the data.
+
+\small
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50),fig.show="hide", eval = TRUE}
+summary(props[,'p.hat'])
+summary(psmoothunwt)
+```
+
+## 
+
+\small
+```{r, echo = T, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50),fig.height=3.5, fig.width = 3, eval = TRUE}
+plot(psmoothunwt~props[,'p.hat'],pch=19,xlim=c(0,.25),ylim=c(0,.25),col="blue",cex=.5,xlab="Naive estimates",ylab="Smoothed")
+abline(0,1,col="green")
+```
+
+## 
+
+\small
+```{r, echo = T, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50),fig.height=3.5, fig.width = 3, eval = TRUE}
+plot(psmoothunwtsd~props[,'se.p.hat'],pch=19,xlim=c(0.005,.035),ylim=c(0.005,.035),col="blue",cex=.5,xlab="Naive Std Err",ylab="Smoothed Post SD")
+abline(0,1,col="green")
+```
+
+
+## Weights
+
+
+BRFSS uses a complex survey design.
+
+
+See 
+
+http://www.cdc.gov/brfss/annual_data/2013/pdf/Weighting_Data.pdf
+
+for more details of the weighting procedure.
+
+Raking adjusts for: telephone source (allowing for cell phones), race/ethnicity, education, marital status, age group by gender, gender by race and ethnicity, age group by race and ethnicity, renter/owner status.
+
+Design weights are
+$$\mbox{STRWT}\times\mbox{1/NUMPHON2}\times\mbox{NUMADULT}.$$
+
+GEOSTR is the geographical strata (which in general may be the entire state or a geographic subset such as counties, census tracts, etc.). _DENSTR is the density of the phone numbers for a given block of numbers as listed or not listed.
+
+## Weights
+
+NRECSTR is the number of available records and NRECSEL is the number of records selected within each geographical strata and density strata.
+
+Within each _GEOSTR $\times$ _DENSTR
+combination, the stratum weight  (_STRWT) is calculated from the 
+average of the NRECSTR and the sum of all sample records used to produce the NRECSEL.  The stratum weight is equal to NRECSTR/NRECSEL, i.e. the reciprocal of the selection probability.
+
+An adjustment is also made for the mostly cellular telephone dual sampling frame users. Weight trimming also used, prior to trimming.
+
+The final weight \textcolor{red}{\texttt{rwt\_llcp}} is the raked design weight.
+
+## Weights
+
+Using the \textcolor{blue}{\texttt{survey}} package, we can get make weighted design-based inference for the proportion in each small area with Type II diabetes.
+
+We need to account for the probability that each person selected in our survey would be selected given the sampling scheme.
+
+ \textcolor{blue}{\texttt{svydesign}} will allow us to specify the sampling scheme. The \textcolor{red}{\texttt{\_ststr}} variable we renamed \textcolor{red}{\texttt{strata}} represents the strata.
+
+The survey weights can be found in the \textcolor{red}{\texttt{rwt\_llcp}} variable. These weights are the products of the design weights and the raking weights.
+
+The function \textcolor{blue}{\texttt{svyby}} allows us to compute the survey-weighted mean of the \textcolor{red}{\texttt{diab2}} variable for small areas indexed by \textcolor{red}{\texttt{hracode}}.  
+ 
+
+
+## Weights summary
+
+The weights have high variability.
+
+The coefficient of variation of the weights is related to the size of the design effect, i.e., to the loss of efficiency compared to simple random sampling. Specifically, CV$^2$/(CV$^2$+1) approximates the inefficiency of using the weights
+
+\small
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE,tidy.opts = list(width.cutoff=50), fig.show="hide", eval = TRUE}
+# Coefficient of variation of weights
+cv <- sqrt(var(kingdata$rwt_llcp,na.rm=T))/mean(kingdata$rwt_llcp,na.rm=T)
+cv^2/(cv^2+1)
+summary(kingdata$rwt_llcp)
+hist(kingdata$rwt_llcp,xlab="Weights",main="")
+``` 
+
+## Histogram of weights
+
+```{r, echo = F, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, echo=F, tidy.opts = list(width.cutoff=50), fig.height=2.9, fig.width = 4, eval = TRUE}
+hist(kingdata$rwt_llcp,xlab="Weights",main="")
+``` 
+
+## Asymptotic distribution of $\hat{p}_i$
+
+The survey package will give us survey-weighted estimates of $p_i$, the proportion of people with Type II diabetes in small area $i$, and a survey-weighted estimate of the standard error, $\widehat{SE}(\hat{p_i})$.
+
+We use the method described in Mercer et al. (2014) If we specify $y_i = \log \left(\dfrac{\hat{p_i}}{1-\hat{p_i}}\right)$ then, by the delta method, the asymptotic (sampling) distribution of $y_i$ is: 
+$$
+y_i | p_i \sim N\left(\log \left(\dfrac{p_i}{1-p_i}\right), \frac{\widehat{\text{var}}(\hat{p_i})}{\hat{p_i}^2(1-\hat{p_i})^2}\right).
+$$
+
+## Calculate weighted means and design-based variances
+
+\small
+```{r, echo=TRUE, message=FALSE, warning=FALSE, tidy=TRUE, tidy.opts=list(width.cutoff=40)}
+library(survey)
+kingcounty.des <- svydesign(ids=~1,weights=~rwt_llcp,strata=~strata, data=kingdata)
+p.i <- svyby(~diab2,~hracode,kingcounty.des,svymean)$diab2
+dv.i <- svyby(~diab2,~hracode,kingcounty.des,svymean)$se^2
+logit.pi <- log(p.i/(1-p.i))
+v.i <- dv.i/(p.i^2*(1-p.i)^2)
+```
+
+We obtain
+
+- The weighted estimators of prevalences \textcolor{red}{\texttt{p.i}}
+
+- The design variances of prevalences \textcolor{red}{\texttt{dv.i}}
+
+- The weighted estimators of logits of prevalences \textcolor{red}{\texttt{logit.p.i}}
+
+- The design variances of logits of prevalences \textcolor{red}{\texttt{v.i}}
+
+## Design effects
+
+The design effect for $\hat{p}_i$ is defined as 
+$$\mbox{Deff} =\frac{\mbox{Variance of estimator given complex design}}{\mbox{Variance of estimator if simple random sampling}}.$$
+
+
+
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50), fig.show="hide", eval = TRUE}
+unwtvar <- props[,'se.p.hat']^2
+deff <- dv.i/unwtvar
+effss <- props[,'n.i']/deff
+par(mfrow=c(1,2))
+hist(deff,main="",xlab="Design Effect")
+plot(effss~props[,'n.i'],pch=19,col="blue",cex=.5,xlab="Sample Size",ylab="Effective Sample Size",xlim=c(50,1000),ylim=c(50,1000))
+abline(0,1,col="green")
+```
+
+##
+
+```{r, echo = F, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50), fig.height=2.9, fig.width = 4.5, eval = TRUE}
+unwtvar <- props[,'se.p.hat']^2
+deff <- dv.i/unwtvar
+effss <- props[,'n.i']/deff
+par(mfrow=c(1,2))
+hist(deff,main="",xlab="Design Effect")
+plot(effss~props[,'n.i'],pch=19,col="blue",cex=.5,xlab="Sample Size",ylab="Effective Sample Size",xlim=c(50,1000),ylim=c(50,1000))
+abline(0,1,col="green")
+```
+
+## Weighted estimates
+
+We now map the weighted estimator
+
+\small
+```{r, echo = T, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE,tidy.opts = list(width.cutoff=50), fig.height=2.7, fig.width = 4, eval = TRUE}
+par(mar=c(1,1,1,1),mfrow=c(1,1))
+mapvariable(p.i, kingshapepoly, ncut=1000, nlevels=10, lower=0, upper=0.2)
+```
+
+## Weighted and naive prevalence estimates
+
+\small
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, echo=T, tidy.opts = list(width.cutoff=50), fig.height=3.3, fig.width = 3.3, eval = TRUE}
+plot(p.i~props[,'p.hat'],pch=19,col="blue",cex=.5,xlab="Naive prevalence",ylab="Weighted prevalence",xlim=c(0,.25),ylim=c(0,.25))
+abline(0,1,col="red")
+```
+
+
+
+## Weighted and naive prevalence standard errors
+
+\small
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, echo=T, tidy.opts = list(width.cutoff=50), fig.height=3.3, fig.width = 3.3, eval = TRUE}
+plot(sqrt(dv.i)~props[,'se.p.hat'],pch=19,cex=.5,col="blue",xlab="Naive prevalence s.e.",ylab="Weighted prevalence s.e.",xlim=c(0,.07),ylim=c(0,.07))
+abline(0,1,col="red")
+```
+
+
+
+## Weighted and naive logits of prevalence estimates
+
+\scriptsize
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50), fig.height=3, fig.width = 2.7, eval = TRUE}
+plot(mod.smooth.unweighted$summary.linear.predictor[,'0.5quant']~logit.pi,pch=19,col="blue",cex=.5, xlab = "Wtd logit estimate", ylab = "Post median of logit", xlim = c(-3.5,-1.2), ylim = c(-3.5,-1.2))
+abline(a=0, b = 1,col="red")
+```
+
+
+## Weighted and naive logits of prevalence estimates
+
+\scriptsize
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50), fig.height=3, fig.width = 2.7, eval = TRUE}
+plot(mod.smooth.unweighted$summary.linear.predictor[,'sd']~sqrt(v.i),pch=19,col="blue",cex=.5, xlab = "Design based s.e. of wtd logit", ylab = "Post s.d. of logit",
+          xlim = c(0.1,0.55), ylim = c(0.1,0.55))
+abline(a=0, b = 1,col="red")
+```
+
+
+## Construct data frame for INLA
+
+
+\small
+```{r, echo=TRUE, message=FALSE, warning=FALSE, tidy=TRUE, tidy.opts=list(width.cutoff=40)}
+
+data <- matrix(NA,nrow=n.area,ncol=1)
+data <- as.data.frame(data)
+colnames(data)[1] <- "unstruct"
+data$hracode <- props$hracode
+data$p.i <- p.i
+data$dv.i <- dv.i
+data$v.i <- v.i
+data$logit.pi <- logit.pi
+data$logit.prec <- 1/v.i
+data$unstruct <- 1:(n.area)
+data$struct <- 1:(n.area)
+```
+
+## Model Specification
+
+We use the \textcolor{blue}{\texttt{INLA}} package to fit the following Bayesian hierarchical model (this is an extension of the Fay-Heriott model):
+\begin{eqnarray*}
+y_i &=& \log\left( \dfrac{\hat{p_i}}{1-\hat{p_i}} \right) \sim N( \theta_i,\hat{V}_i )\\
+\theta_i &=& \beta + \epsilon_i+S_i,\\
+\epsilon_i &\sim & N(0,\sigma_\epsilon^2)\\
+  S_i | S_j, j \in \text{ne}(i) &\sim& N\left(\bar{S_j}, \dfrac{\sigma_s^2}{m_i} \right).
+ \end{eqnarray*}
+With priors on $\beta_0,\sigma_\epsilon^2,\sigma_s^2$.
+
+The key here is that the first stage variance $\hat{V}_i$ is assumed known:
+$$\hat{V}_i=\frac{\mbox{var}(\hat{p}_i)}{\hat{p}_i^2(1-\hat{p}_i)^2}.$$
+
+## Fit global/local spatial smoothing model
+
+\small
+```{r, echo = TRUE, message = FALSE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=40)}
+formula = logit.pi ~ 1 + f(struct, model='besag', adjust.for.con.comp=TRUE, constr=TRUE, graph='HRA_Shapefiles/KingCoNb.graph') + f(unstruct,model='iid', param=c(0.5,0.008))
+mod.smooth <- inla(formula, family = "gaussian", data = data, 
+                  control.predictor = list(compute = TRUE),
+  control.family = list( hyper = list(prec = list( initial = log(1), fixed=TRUE))), 
+scale=logit.prec)
+```
+
+## Results
+```{r, echo = TRUE, message = FALSE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=40)}
+mod.smooth$summary.fixed[,c('mean', '0.5quant', 'sd')]
+mod.smooth$summary.hyperpar[,c('mean', '0.5quant')]
+mod.smooth$summary.hyperpar[,c('sd')]
+```
+
+## Results
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=40)}
+fixed.med <- rep(mod.smooth$summary.fixed[,4],dim(data)[1])
+random.iid <- mod.smooth$summary.random$unstruct[,5]
+random.smooth <- mod.smooth$summary.random$struct[,5]
+linpred <- mod.smooth$summary.fitted.values[,'0.5quant']
+pred <- exp(linpred)/(1+exp(linpred))
+odds <- exp(linpred)
+res <- cbind(data,fixed.med,random.iid,random.smooth,linpred,pred,odds)
+```
+
+## Comparison of estimates on logit scale
+
+\scriptsize
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50), fig.height=3, fig.width = 2.7, eval = TRUE}
+plot(mod.smooth$summary.fitted.values[,'mean']~logit.pi,pch=19,col="blue",cex=.5,xlab = "Design est of prev", ylab = "Post mean smoothed prev",xlim=c(-3.8,-1.2),ylim=c(-3.8,-1.2))
+abline(a=0, b = 1,col="red")
+```
+
+
+## Comparison of uncertainty measures on logit scale
+
+\scriptsize
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50), fig.height=3, fig.width = 2.7, eval = TRUE}
+plot(mod.smooth$summary.fitted.values[,'sd']~sqrt(v.i),pch=19,col="blue",cex=.5, xlab = "Design based s.e.", ylab = "Post s.d.",
+          xlim = c(0.15,0.55), ylim = c(0.15,0.55))
+abline(a=0, b = 1,col="red")
+```
+
+## Predicted Prevalence
+
+\scriptsize
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50), fig.height=2.5, fig.width = 3, eval = TRUE}
+
+par(mar=c(1,1,1,1))
+mapvariable(res[,'pred'], kingshapepoly, ncut=1000, nlevels=10, lower=0, upper=0.2)
+```
+
+## Comparison of estimates on prevalence scale: notice the shrinkage
+
+\small
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50), fig.show="hide", eval = TRUE}
+summary(p.i)
+summary(res[,'pred'])
+plot(res[,'pred']~p.i,pch=19,xlim=c(0,.25),ylim=c(0,.25),col="blue",cex=.5,xlab="Weighted estimates",ylab="Smoothed estimates")
+abline(0,1,col="green")
+```
+
+## Comparison of estimates on prev scale: notice the shrinkage
+
+\small
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50), fig.height=3.5, fig.width = 3.5, eval = TRUE,echo=F}
+plot(res[,'pred']~p.i,pch=19,xlim=c(0,.25),ylim=c(0,.25),col="blue",cex=.5,xlab="Weighted estimates",ylab="Smoothed estimates")
+abline(0,1,col="green")
+```
+
+
+
+## Predicted diabetes odds
+
+\scriptsize
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=50), fig.height=2.5, fig.width = 3, eval = TRUE}
+par(mar=c(1,1,1,1))
+mapvariable(res[,'odds'], kingshapepoly, ncut=1000, nlevels=10, lower=0, upper=0.2)
+```
+
+
+## Post sd of prevalence
+
+We model on the log scale and so to obtain inference on the prevalence scale we need to either simulate from the posterior for the logit and  transform, or use numerical integration on the approximation to the marginal distribution.
+
+We carry out both and then compare the results.
+
+## Post sd of prevalence
+
+\small
+```{r, echo = TRUE, message = FALSE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=40)}
+expit <- function(x){
+  exp(x)/(exp(x)+1)}
+n.sim <- 1000
+test <- matrix(NA, nrow=n.area, ncol = 2)
+test <- as.data.frame(test)
+colnames(test) <- c("simulated", "e.marginal")
+for(i in 1:n.area){
+  test[i,'simulated'] <-      sd(expit(inla.rmarginal(n.sim,mod.smooth$marginals.linear.predictor[[i]])))
+   expectations <- inla.emarginal(function(x) c(expit(x), expit(x)^2),                                 mod.smooth$marginals.linear.predictor[[i]])
+   test[i, 'e.marginal'] <- sqrt(expectations[2] - expectations[1]^2)
+}
+```
+
+## Comparison of approaches: good agreement
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE, tidy = TRUE, tidy.opts = list(width.cutoff=40), fig.height=3.5, fig.width = 3,}
+plot(test$simulated, test$e.marginal,xlab="Simulation",ylab="Numerical Integration",pch=19,cex=.5,col="blue")
+abline(a=0, b=1,col="red")
+```
+
+
+## Comparison of standard errors
+
+\small
+```{r, echo = TRUE, message = FALSE, collapse = TRUE, warning = FALSE, tidy = TRUE, echo=T, tidy.opts = list(width.cutoff=50), fig.height=3.5, fig.width = 3.3, eval = TRUE}
+plot(test$e.marginal~sqrt(dv.i),pch=19,cex=.5,col="blue",ylab="Wtd Smooth Post S.D.",xlab="Wtd estimate S.E.",xlim=c(0.005,.06),ylim=c(0.005,.06))
+abline(0,1,col="red")
+```
+
+
+## Conclusions
+
+The last two plots illustrate the effect of the Bayesian smoothing model:
+
+- the estimates are shrunk (both globally and locally), this introduces bias,
+
+- the uncertainty is in general reduced, due to the use of all the data.
+
+Overall:
+
+- It is clear we need to consider the weighting
+
+- The smoothing does increase precision, at the expense of a little bias
